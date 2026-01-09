@@ -1,0 +1,6 @@
+rootProject.name = 'SiteInspectionApp'
+apply from: file("../node_modules/@react-native/gradle-plugin/settings.gradle")
+includeBuild('../node_modules/@react-native/gradle-plugin')
+
+include ':app'
+includeBuild('../node_modules/react-native-gradle-plugin')
