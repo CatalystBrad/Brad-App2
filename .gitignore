@@ -31,6 +31,9 @@ local.properties
 *.keystore
 !debug.keystore
 
+# Keep gradle wrapper jar
+!gradle-wrapper.jar
+
 # node.js
 node_modules/
 npm-debug.log

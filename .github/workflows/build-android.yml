@@ -33,13 +33,26 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v2
 
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: 8.3
+
     - name: Grant execute permission for gradlew
       run: chmod +x android/gradlew
+
+    - name: Generate Gradle Wrapper if missing
+      run: |
+        cd android
+        if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+          gradle wrapper --gradle-version 8.3
+        fi
+        cd ..
 
     - name: Build Android Release APK
       run: |
         cd android
-        ./gradlew assembleRelease
+        ./gradlew assembleRelease --no-daemon --stacktrace
         cd ..
 
     - name: Upload APK
