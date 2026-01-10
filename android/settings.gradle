@@ -1,18 +1,7 @@
 rootProject.name = 'SiteInspectionApp'
 
-def rnSettingsFile = file("../node_modules/@react-native/gradle-plugin/settings.gradle")
-if (rnSettingsFile.exists()) {
-    apply from: rnSettingsFile
-}
-
-def rnGradlePlugin = file("../node_modules/@react-native/gradle-plugin")
-if (rnGradlePlugin.exists()) {
-    includeBuild(rnGradlePlugin)
-}
+apply from: file("../node_modules/@react-native/gradle-plugin/settings.gradle")
+includeBuild('../node_modules/@react-native/gradle-plugin')
 
 include ':app'
-
-def reactNativeGradlePlugin = file("../node_modules/react-native-gradle-plugin")
-if (reactNativeGradlePlugin.exists()) {
-    includeBuild(reactNativeGradlePlugin)
-}
+includeBuild('../node_modules/react-native-gradle-plugin')

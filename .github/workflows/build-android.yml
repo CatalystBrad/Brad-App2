@@ -36,8 +36,13 @@ jobs:
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
-      with:
-        gradle-version: '8.3'
+
+    - name: Generate Gradle Wrapper
+      run: |
+        cd android
+        gradle wrapper --gradle-version 8.3 --distribution-type all
+        chmod +x gradlew
+        cd ..
 
     - name: Cache Gradle packages
       uses: actions/cache@v4
@@ -52,7 +57,7 @@ jobs:
     - name: Build Android Release APK
       run: |
         cd android
-        gradle assembleRelease --no-daemon --stacktrace
+        ./gradlew assembleRelease --no-daemon --stacktrace
         cd ..
 
     - name: List build outputs
