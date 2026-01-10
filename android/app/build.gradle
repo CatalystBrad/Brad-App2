@@ -3,6 +3,7 @@ apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 react {
+    hermesEnabled = true
 }
 
 def enableProguardInReleaseBuilds = false
