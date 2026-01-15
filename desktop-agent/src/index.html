@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Executive Agent</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="app-header">
+        <h1>Executive Agent</h1>
+        <p class="tagline">Your AI-powered business assistant</p>
+      </div>
+
+      <div class="agent-selector">
+        <h3>Select Agent</h3>
+        <button class="agent-btn active" data-agent="ceo">
+          <span class="icon">👔</span>
+          <div class="agent-info">
+            <h4>CEO</h4>
+            <p>Strategic & Vision</p>
+          </div>
+        </button>
+        <button class="agent-btn" data-agent="operations">
+          <span class="icon">⚙️</span>
+          <div class="agent-info">
+            <h4>Operations</h4>
+            <p>Processes & Efficiency</p>
+          </div>
+        </button>
+        <button class="agent-btn" data-agent="finance">
+          <span class="icon">💰</span>
+          <div class="agent-info">
+            <h4>Finance</h4>
+            <p>Planning & Analysis</p>
+          </div>
+        </button>
+      </div>
+
+      <div class="api-status">
+        <div class="status-indicator" id="apiStatus">
+          <span class="status-dot"></span>
+          <span class="status-text">Checking API...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="main-content">
+      <div class="chat-header">
+        <h2 id="currentAgentTitle">CEO Agent</h2>
+        <p id="currentAgentDesc">Strategic insights and high-level decision support</p>
+      </div>
+
+      <div class="chat-container" id="chatContainer">
+        <div class="welcome-message">
+          <h3>Welcome to Executive Agent</h3>
+          <p>Select an agent from the sidebar and start a conversation to get assistance with:</p>
+          <ul>
+            <li><strong>CEO:</strong> Strategy, vision, leadership, and high-level decisions</li>
+            <li><strong>Operations:</strong> Process optimization, project management, and workflows</li>
+            <li><strong>Finance:</strong> Financial planning, budgeting, and analysis</li>
+          </ul>
+          <p class="tip">Type your question or task below to begin.</p>
+        </div>
+      </div>
+
+      <div class="input-container">
+        <textarea
+          id="messageInput"
+          placeholder="Type your message here... (Shift+Enter for new line, Enter to send)"
+          rows="3"
+        ></textarea>
+        <button id="sendButton" class="send-btn">
+          <span>Send</span>
+          <span class="shortcut">↵</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
