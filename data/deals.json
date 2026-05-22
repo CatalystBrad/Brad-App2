@@ -1,0 +1,11 @@
+{
+  "generatedAt": "1970-01-01T00:00:00.000Z",
+  "count": 0,
+  "criteria": {
+    "adults": 3,
+    "children": [15, 4],
+    "departures": ["MAN"],
+    "durationNights": [5, 14]
+  },
+  "deals": []
+}

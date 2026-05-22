@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ claude/build-new-app-dRKfI, main ]
+    branches: [ claude/build-new-app-dRKfI, claude/holiday-daily-deals-L73tX, main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -68,7 +68,7 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: SiteInspector-release
+        name: HolidayDeals-release
         path: android/app/build/outputs/apk/release/*.apk
         if-no-files-found: error
 

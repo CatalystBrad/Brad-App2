@@ -1,67 +1,100 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {Inspection} from '../types';
+import {
+  DealsFeed,
+  PriceHistoryEntry,
+  SavedSearch,
+  TravelParty,
+  DEFAULT_TRAVEL_PARTY,
+} from '../types';
 
-const INSPECTIONS_KEY = '@inspections';
+const K_FEED = '@deals.feed';
+const K_FEED_FETCHED_AT = '@deals.feedFetchedAt';
+const K_PARTY = '@party';
+const K_SAVED_SEARCHES = '@savedSearches';
+const K_PRICE_HISTORY = '@priceHistory';
+const K_SETTINGS = '@settings';
 
-export const StorageService = {
-  async getAllInspections(): Promise<Inspection[]> {
-    try {
-      const data = await AsyncStorage.getItem(INSPECTIONS_KEY);
-      return data ? JSON.parse(data) : [];
-    } catch (error) {
-      console.error('Error loading inspections:', error);
-      return [];
-    }
+export interface AppSettings {
+  notifyOnNewDeal: boolean;
+  notifyOnPriceDropPct: number;
+  showLongHaul: boolean;
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  notifyOnNewDeal: true,
+  notifyOnPriceDropPct: 10,
+  showLongHaul: true,
+};
+
+async function readJson<T>(key: string, fallback: T): Promise<T> {
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch (err) {
+    console.warn(`storage: ${key} read failed`, err);
+    return fallback;
+  }
+}
+
+async function writeJson(key: string, value: unknown): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    console.warn(`storage: ${key} write failed`, err);
+  }
+}
+
+export const Storage = {
+  // Deals feed cache ------------------------------------------------------
+  getFeed(): Promise<DealsFeed | null> {
+    return readJson<DealsFeed | null>(K_FEED, null);
+  },
+  async saveFeed(feed: DealsFeed): Promise<void> {
+    await writeJson(K_FEED, feed);
+    await writeJson(K_FEED_FETCHED_AT, Date.now());
+  },
+  getFeedFetchedAt(): Promise<number | null> {
+    return readJson<number | null>(K_FEED_FETCHED_AT, null);
   },
 
-  async getInspection(id: string): Promise<Inspection | null> {
-    try {
-      const inspections = await this.getAllInspections();
-      return inspections.find(i => i.id === id) || null;
-    } catch (error) {
-      console.error('Error loading inspection:', error);
-      return null;
-    }
+  // Travel party ----------------------------------------------------------
+  getParty(): Promise<TravelParty> {
+    return readJson<TravelParty>(K_PARTY, DEFAULT_TRAVEL_PARTY);
+  },
+  saveParty(party: TravelParty): Promise<void> {
+    return writeJson(K_PARTY, party);
   },
 
-  async saveInspection(inspection: Inspection): Promise<boolean> {
-    try {
-      const inspections = await this.getAllInspections();
-      const existingIndex = inspections.findIndex(i => i.id === inspection.id);
-
-      if (existingIndex >= 0) {
-        inspections[existingIndex] = inspection;
-      } else {
-        inspections.push(inspection);
-      }
-
-      await AsyncStorage.setItem(INSPECTIONS_KEY, JSON.stringify(inspections));
-      return true;
-    } catch (error) {
-      console.error('Error saving inspection:', error);
-      return false;
-    }
+  // Saved searches --------------------------------------------------------
+  getSavedSearches(): Promise<SavedSearch[]> {
+    return readJson<SavedSearch[]>(K_SAVED_SEARCHES, []);
+  },
+  async upsertSavedSearch(s: SavedSearch): Promise<void> {
+    const all = await this.getSavedSearches();
+    const i = all.findIndex(x => x.id === s.id);
+    if (i >= 0) all[i] = s;
+    else all.push(s);
+    await writeJson(K_SAVED_SEARCHES, all);
+  },
+  async deleteSavedSearch(id: string): Promise<void> {
+    const all = await this.getSavedSearches();
+    await writeJson(K_SAVED_SEARCHES, all.filter(s => s.id !== id));
   },
 
-  async deleteInspection(id: string): Promise<boolean> {
-    try {
-      const inspections = await this.getAllInspections();
-      const filtered = inspections.filter(i => i.id !== id);
-      await AsyncStorage.setItem(INSPECTIONS_KEY, JSON.stringify(filtered));
-      return true;
-    } catch (error) {
-      console.error('Error deleting inspection:', error);
-      return false;
-    }
+  // Price history ---------------------------------------------------------
+  getPriceHistory(): Promise<Record<string, PriceHistoryEntry>> {
+    return readJson<Record<string, PriceHistoryEntry>>(K_PRICE_HISTORY, {});
+  },
+  savePriceHistory(history: Record<string, PriceHistoryEntry>): Promise<void> {
+    return writeJson(K_PRICE_HISTORY, history);
   },
 
-  async clearAllInspections(): Promise<boolean> {
-    try {
-      await AsyncStorage.removeItem(INSPECTIONS_KEY);
-      return true;
-    } catch (error) {
-      console.error('Error clearing inspections:', error);
-      return false;
-    }
+  // Settings --------------------------------------------------------------
+  getSettings(): Promise<AppSettings> {
+    return readJson<AppSettings>(K_SETTINGS, DEFAULT_SETTINGS);
+  },
+  saveSettings(s: AppSettings): Promise<void> {
+    return writeJson(K_SETTINGS, s);
   },
 };

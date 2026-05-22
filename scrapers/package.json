@@ -1,0 +1,25 @@
+{
+  "name": "holiday-deals-scrapers",
+  "version": "1.0.0",
+  "description": "Daily holiday deal scrapers for Brad-App2",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/index.ts",
+    "scrape": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "cheerio": "1.0.0-rc.12",
+    "fast-xml-parser": "^4.3.4",
+    "undici": "^6.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
