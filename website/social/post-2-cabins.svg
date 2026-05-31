@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4863a"/>
+      <stop offset="1" stop-color="#c4490a"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="rgba(0,0,0,0)"/>
+      <stop offset="1" stop-color="rgba(0,0,0,0.18)"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1080" fill="url(#bg)"/>
+  <!-- sun -->
+  <circle cx="860" cy="250" r="150" fill="rgba(255,255,255,0.16)"/>
+  <circle cx="860" cy="250" r="92" fill="rgba(255,255,255,0.22)"/>
+  <!-- waves -->
+  <path d="M0,930 C180,890 360,980 540,930 C720,880 900,980 1080,930 L1080,1080 L0,1080 Z" fill="rgba(255,255,255,0.10)"/>
+  <path d="M0,985 C180,950 360,1030 540,985 C720,945 900,1030 1080,985 L1080,1080 L0,1080 Z" fill="rgba(255,255,255,0.14)"/>
+  <rect width="1080" height="1080" fill="url(#shade)"/>
+  <!-- brand -->
+  <text x="110" y="150" font-family="Georgia, serif" font-size="40" font-weight="700" fill="#fff" letter-spacing="1">Woolacombe Bay Retreats</text>
+  <rect x="112" y="178" width="64" height="5" rx="2.5" fill="rgba(255,255,255,0.8)"/>
+  <!-- eyebrow -->
+  <text x="112" y="470" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" letter-spacing="5" fill="rgba(255,255,255,0.92)">LOG CABINS</text>
+  <text x="110" y="560" font-family="Georgia, 'Times New Roman', serif" font-size="108" font-weight="700" fill="#fff">Hot tubs &amp;</text>
+    <text x="110" y="678" font-family="Georgia, 'Times New Roman', serif" font-size="108" font-weight="700" fill="#fff">wood-burners</text>
+    
+  <text x="112" y="836" font-family="Helvetica, Arial, sans-serif" font-size="34" fill="rgba(255,255,255,0.95)">Hand-crafted timber lodges with private</text>
+    <text x="112" y="882" font-family="Helvetica, Arial, sans-serif" font-size="34" fill="rgba(255,255,255,0.95)">hot tubs and countryside views. From</text>
+    <text x="112" y="928" font-family="Helvetica, Arial, sans-serif" font-size="34" fill="rgba(255,255,255,0.95)">£119/night.</text>
+    
+  <!-- CTA pill -->
+  <rect x="110" y="900" width="435" height="74" rx="37" fill="#fff"/>
+  <text x="327.5" y="947" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" letter-spacing="2" fill="#c4490a">VIEW THE CABINS</text>
+  <text x="970" y="1015" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="26" fill="rgba(255,255,255,0.9)">woolacombebayretreats.co.uk</text>
+</svg>
