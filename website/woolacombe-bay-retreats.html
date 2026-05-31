@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Woolacombe Bay Retreats — Log Cabins & Caravans by the Sea</title>
+  <meta name="description" content="Self-catering log cabins and caravans in Woolacombe, North Devon. Minutes from the golden sands of Woolacombe Beach. Book your seaside escape today." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+/* =========================================================
+   Woolacombe Bay Retreats — styles
+   Palette: deep sea blue, sandy gold, warm timber, off-white
+   ========================================================= */
+
+:root {
+  --navy: #123a4d;
+  --sea: #1e6f8c;
+  --sea-light: #3a9bb8;
+  --sand: #e4c590;
+  --sand-deep: #c89b54;
+  --timber: #8a5a3b;
+  --cream: #fbf7f0;
+  --ink: #1d2a2f;
+  --muted: #5f7077;
+  --white: #ffffff;
+  --radius: 16px;
+  --shadow: 0 10px 30px rgba(18, 58, 77, 0.12);
+  --shadow-sm: 0 4px 14px rgba(18, 58, 77, 0.1);
+  --max: 1140px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--cream);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Fraunces', Georgia, serif;
+  line-height: 1.15;
+  color: var(--navy);
+  font-weight: 600;
+}
+
+img { max-width: 100%; display: block; }
+a { color: inherit; text-decoration: none; }
+
+.container { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--sea);
+  margin-bottom: 0.6rem;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-block;
+  padding: 0.85rem 1.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.btn-primary { background: var(--sand-deep); color: #fff; }
+.btn-primary:hover { background: var(--timber); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.btn-ghost { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.7); }
+.btn-ghost:hover { background: #fff; color: var(--navy); transform: translateY(-2px); }
+.btn-block { width: 100%; text-align: center; }
+
+/* ---------- Header ---------- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(251, 247, 240, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(18,58,77,0.08);
+}
+.header-inner { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+.brand { display: flex; align-items: center; gap: 0.5rem; font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.2rem; color: var(--navy); }
+.brand-mark { font-size: 1.4rem; }
+
+.nav-menu { list-style: none; display: flex; align-items: center; gap: 1.8rem; }
+.nav-menu a { font-weight: 500; color: var(--ink); transition: color 0.15s; }
+.nav-menu a:hover { color: var(--sea); }
+.nav-cta { background: var(--sea); color: #fff !important; padding: 0.55rem 1.2rem; border-radius: 999px; }
+.nav-cta:hover { background: var(--navy); }
+
+.nav-toggle { display: none; flex-direction: column; gap: 5px; background: none; border: 0; cursor: pointer; padding: 8px; }
+.nav-toggle span { width: 26px; height: 2px; background: var(--navy); border-radius: 2px; transition: 0.25s; }
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  min-height: 86vh;
+  display: flex;
+  align-items: center;
+  background:
+    linear-gradient(180deg, rgba(18,58,77,0.15), rgba(18,58,77,0.55)),
+    url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat;
+  color: #fff;
+}
+.hero-content { max-width: 680px; padding: 5rem 24px; }
+.hero .eyebrow { color: var(--sand); }
+.hero h1 { color: #fff; font-size: clamp(2.4rem, 6vw, 4rem); margin-bottom: 1rem; }
+.hero-sub { font-size: 1.15rem; max-width: 540px; margin-bottom: 2rem; color: rgba(255,255,255,0.94); }
+.hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2.2rem; }
+.hero-badges { list-style: none; display: flex; flex-wrap: wrap; gap: 1.4rem; font-size: 0.95rem; font-weight: 500; }
+
+/* ---------- Sections ---------- */
+.section { padding: 5.5rem 0; }
+.section-tint { background: var(--white); }
+.section-head { max-width: 680px; margin-bottom: 3rem; }
+.section-head h2 { font-size: clamp(1.9rem, 4vw, 2.8rem); margin-bottom: 0.8rem; }
+.lead { font-size: 1.1rem; color: var(--muted); }
+
+/* ---------- Stay type tiles ---------- */
+.stay-types { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.8rem; }
+.stay-type { background: var(--white); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); transition: transform 0.2s, box-shadow 0.2s; }
+.stay-type:hover { transform: translateY(-6px); box-shadow: var(--shadow); }
+.stay-type-img { height: 240px; background-size: cover; background-position: center; }
+.cabin-bg { background-image: linear-gradient(0deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1)), url('https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=1200&q=80'); }
+.caravan-bg { background-image: linear-gradient(0deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1)), url('https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&w=1200&q=80'); }
+.stay-type-body { padding: 1.6rem; }
+.stay-type-body h3 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+.stay-type-body p { color: var(--muted); margin-bottom: 1rem; }
+.link-arrow { color: var(--sea); font-weight: 600; }
+
+/* ---------- Property cards ---------- */
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.8rem; }
+.card { background: var(--white); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; transition: transform 0.2s, box-shadow 0.2s; }
+.card:hover { transform: translateY(-6px); box-shadow: var(--shadow); }
+.card-img { height: 200px; background-size: cover; background-position: center; position: relative; }
+.card-tag { position: absolute; top: 12px; left: 12px; background: rgba(251,247,240,0.95); color: var(--navy); font-size: 0.72rem; font-weight: 600; padding: 0.3rem 0.7rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.06em; }
+.card-body { padding: 1.3rem 1.4rem 1.5rem; display: flex; flex-direction: column; flex: 1; }
+.card-body h3 { font-size: 1.3rem; margin-bottom: 0.3rem; }
+.card-meta { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.7rem; }
+.card-desc { color: var(--muted); font-size: 0.95rem; margin-bottom: 1rem; flex: 1; }
+.card-feats { list-style: none; display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.1rem; }
+.card-feats li { background: var(--cream); color: var(--navy); font-size: 0.78rem; padding: 0.3rem 0.65rem; border-radius: 999px; }
+.card-foot { display: flex; align-items: center; justify-content: space-between; }
+.price { font-family: 'Fraunces', serif; font-size: 1.25rem; color: var(--navy); font-weight: 600; }
+.price small { font-size: 0.8rem; color: var(--muted); font-weight: 400; }
+.card .btn { padding: 0.6rem 1.2rem; font-size: 0.88rem; }
+
+/* ---------- Area ---------- */
+.area-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 3rem; align-items: center; }
+.area-text p { color: var(--muted); margin-bottom: 1.2rem; }
+.area-list { list-style: none; display: flex; flex-direction: column; gap: 0.7rem; }
+.area-list li { padding-left: 1.6rem; position: relative; }
+.area-list li::before { content: '📍'; position: absolute; left: 0; }
+.area-features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; }
+.feature { background: var(--cream); border-radius: var(--radius); padding: 1.4rem; }
+.feature-icon { font-size: 1.8rem; }
+.feature h4 { margin: 0.6rem 0 0.3rem; }
+.feature p { color: var(--muted); font-size: 0.9rem; }
+
+/* ---------- Booking ---------- */
+.book-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 3rem; align-items: start; }
+.book-intro p { color: var(--muted); margin-bottom: 1.2rem; }
+.book-contact p { margin-bottom: 0.5rem; color: var(--ink); }
+.book-contact a { color: var(--sea); font-weight: 600; }
+.book-form { background: var(--white); padding: 2rem; border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.book-form label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--navy); margin-bottom: 1rem; }
+.book-form input, .book-form select, .book-form textarea {
+  width: 100%; margin-top: 0.35rem; padding: 0.7rem 0.8rem;
+  border: 1px solid #d9dfe1; border-radius: 10px; font: inherit; font-weight: 400; color: var(--ink);
+  background: var(--cream);
+}
+.book-form input:focus, .book-form select:focus, .book-form textarea:focus {
+  outline: none; border-color: var(--sea); box-shadow: 0 0 0 3px rgba(30,111,140,0.15);
+}
+.form-status { margin-top: 0.9rem; font-size: 0.9rem; font-weight: 500; min-height: 1.2em; }
+.form-status.ok { color: #1f7a4d; }
+.form-status.err { color: #b23b3b; }
+
+/* ---------- Footer ---------- */
+.site-footer { background: var(--navy); color: rgba(255,255,255,0.85); padding: 3.5rem 0 1.5rem; margin-top: 2rem; }
+.footer-inner { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 2rem; padding-bottom: 2.5rem; border-bottom: 1px solid rgba(255,255,255,0.15); }
+.footer-brand .brand-text { color: #fff; font-family: 'Fraunces', serif; font-size: 1.2rem; }
+.footer-brand p { margin-top: 0.8rem; font-size: 0.9rem; max-width: 320px; }
+.footer-links { display: flex; flex-direction: column; gap: 0.5rem; }
+.footer-links h4 { color: #fff; margin-bottom: 0.4rem; }
+.footer-links a:hover { color: var(--sand); }
+.footer-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; padding-top: 1.5rem; font-size: 0.85rem; color: rgba(255,255,255,0.6); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 860px) {
+  .nav-toggle { display: flex; }
+  .nav-menu {
+    position: absolute; top: 72px; right: 0; left: 0;
+    flex-direction: column; align-items: flex-start; gap: 0;
+    background: var(--cream); padding: 1rem 24px;
+    border-bottom: 1px solid rgba(18,58,77,0.1);
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease; padding-top: 0; padding-bottom: 0;
+  }
+  .nav-menu.open { max-height: 360px; padding-top: 1rem; padding-bottom: 1rem; }
+  .nav-menu li { width: 100%; padding: 0.5rem 0; }
+  .stay-types, .cards, .area-grid, .area-features, .book-grid, .footer-inner { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .form-row { grid-template-columns: 1fr; }
+  .hero { min-height: 78vh; }
+  .section { padding: 4rem 0; }
+}
+
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header" id="top">
+    <div class="container header-inner">
+      <a href="#top" class="brand">
+        <span class="brand-mark">🌊</span>
+        <span class="brand-text">Woolacombe Bay Retreats</span>
+      </a>
+      <nav class="main-nav" aria-label="Primary">
+        <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu" aria-label="Toggle menu">
+          <span></span><span></span><span></span>
+        </button>
+        <ul id="nav-menu" class="nav-menu">
+          <li><a href="#stays">Stays</a></li>
+          <li><a href="#cabins">Log Cabins</a></li>
+          <li><a href="#caravans">Caravans</a></li>
+          <li><a href="#area">The Area</a></li>
+          <li><a href="#book" class="nav-cta">Book Now</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-overlay"></div>
+    <div class="container hero-content">
+      <p class="eyebrow">North Devon · Woolacombe</p>
+      <h1>Wake up to the sound of the sea</h1>
+      <p class="hero-sub">Cosy log cabins and well-appointed caravans just a short stroll from Woolacombe's three miles of golden sand. Your perfect seaside escape awaits.</p>
+      <div class="hero-actions">
+        <a href="#stays" class="btn btn-primary">Explore Stays</a>
+        <a href="#book" class="btn btn-ghost">Check Availability</a>
+      </div>
+      <ul class="hero-badges">
+        <li>⭐ 4.9 average guest rating</li>
+        <li>🐾 Dog-friendly options</li>
+        <li>🏖️ 5 min walk to the beach</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Intro / Stays -->
+  <section class="section" id="stays">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow">Where will you stay?</p>
+        <h2>Two ways to unwind in Woolacombe</h2>
+        <p class="lead">Whether you're after the warm timber glow of a log cabin or the easy, breezy comfort of a seaside caravan, we have a retreat to suit every kind of getaway.</p>
+      </div>
+      <div class="stay-types">
+        <a href="#cabins" class="stay-type">
+          <div class="stay-type-img cabin-bg"></div>
+          <div class="stay-type-body">
+            <h3>Log Cabins</h3>
+            <p>Hand-crafted timber lodges with private hot tubs, wood-burning warmth and views across the Devon countryside.</p>
+            <span class="link-arrow">View cabins →</span>
+          </div>
+        </a>
+        <a href="#caravans" class="stay-type">
+          <div class="stay-type-img caravan-bg"></div>
+          <div class="stay-type-body">
+            <h3>Caravans</h3>
+            <p>Modern, family-friendly static caravans on a peaceful park — fantastic value and footsteps from the coast path.</p>
+            <span class="link-arrow">View caravans →</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Log Cabins -->
+  <section class="section section-tint" id="cabins">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow">Log Cabins</p>
+        <h2>Timber lodges with a touch of luxury</h2>
+      </div>
+      <div class="cards" id="cabin-cards"></div>
+    </div>
+  </section>
+
+  <!-- Caravans -->
+  <section class="section" id="caravans">
+    <div class="container">
+      <div class="section-head">
+        <p class="eyebrow">Caravans</p>
+        <h2>Relaxed seaside living</h2>
+      </div>
+      <div class="cards" id="caravan-cards"></div>
+    </div>
+  </section>
+
+  <!-- The Area -->
+  <section class="section section-tint" id="area">
+    <div class="container area-grid">
+      <div class="area-text">
+        <p class="eyebrow">The Area</p>
+        <h2>Woolacombe & beyond</h2>
+        <p>Consistently voted one of Britain's best beaches, Woolacombe's vast golden sands are a paradise for surfers, families and dog-walkers alike. The South West Coast Path winds along dramatic cliffs to Mortehoe, Croyde and Saunton.</p>
+        <ul class="area-list">
+          <li><strong>Woolacombe Beach</strong> — 3 miles of Blue Flag sand, 5 min walk</li>
+          <li><strong>Mortehoe Village</strong> — charming pubs & coast path, 1 mile</li>
+          <li><strong>Surfing & paddleboarding</strong> — lessons & hire on the beach</li>
+          <li><strong>Croyde & Barnstaple</strong> — surf town & market town nearby</li>
+        </ul>
+      </div>
+      <div class="area-features">
+        <div class="feature"><span class="feature-icon">🏄</span><h4>Surf's up</h4><p>World-class beach breaks on your doorstep.</p></div>
+        <div class="feature"><span class="feature-icon">🐕</span><h4>Dog friendly</h4><p>Pups welcome in selected cabins & caravans.</p></div>
+        <div class="feature"><span class="feature-icon">🥾</span><h4>Coast path</h4><p>Miles of stunning clifftop walking trails.</p></div>
+        <div class="feature"><span class="feature-icon">🍽️</span><h4>Eat local</h4><p>Fresh seafood, cream teas & cosy pubs.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Booking / Contact -->
+  <section class="section" id="book">
+    <div class="container book-grid">
+      <div class="book-intro">
+        <p class="eyebrow">Booking Enquiry</p>
+        <h2>Check availability</h2>
+        <p>Tell us your dates and party size and we'll get straight back to you with availability and a quote. No payment taken at this stage.</p>
+        <div class="book-contact">
+          <p>📞 <a href="tel:+441271870000">01271 870 000</a></p>
+          <p>✉️ <a href="mailto:stay@woolacombebayretreats.co.uk">stay@woolacombebayretreats.co.uk</a></p>
+        </div>
+      </div>
+      <form class="book-form" id="booking-form" novalidate>
+        <div class="form-row">
+          <label>Name
+            <input type="text" name="name" required autocomplete="name" />
+          </label>
+          <label>Email
+            <input type="email" name="email" required autocomplete="email" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Property type
+            <select name="property">
+              <option value="">No preference</option>
+              <option value="cabin">Log Cabin</option>
+              <option value="caravan">Caravan</option>
+            </select>
+          </label>
+          <label>Guests
+            <input type="number" name="guests" min="1" max="12" value="2" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Arrive
+            <input type="date" name="arrive" required />
+          </label>
+          <label>Depart
+            <input type="date" name="depart" required />
+          </label>
+        </div>
+        <label>Message
+          <textarea name="message" rows="3" placeholder="Anything we should know? (dogs, accessibility, occasion…)"></textarea>
+        </label>
+        <button type="submit" class="btn btn-primary btn-block">Send Enquiry</button>
+        <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <span class="brand-mark">🌊</span>
+        <span class="brand-text">Woolacombe Bay Retreats</span>
+        <p>Self-catering log cabins & caravans in Woolacombe, North Devon, EX34.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Explore</h4>
+        <a href="#cabins">Log Cabins</a>
+        <a href="#caravans">Caravans</a>
+        <a href="#area">The Area</a>
+        <a href="#book">Book Now</a>
+      </div>
+      <div class="footer-links">
+        <h4>Contact</h4>
+        <a href="tel:+441271870000">01271 870 000</a>
+        <a href="mailto:stay@woolacombebayretreats.co.uk">stay@woolacombebayretreats.co.uk</a>
+        <span>Woolacombe, Devon EX34</span>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>© <span id="year"></span> Woolacombe Bay Retreats. All rights reserved.</p>
+      <p>A peaceful escape by the North Devon coast.</p>
+    </div>
+  </footer>
+
+  <script>
+/* =========================================================
+   Woolacombe Bay Retreats — interactivity
+   ========================================================= */
+
+// --- Property data -------------------------------------------------
+const cabins = [
+  {
+    name: 'Driftwood Lodge',
+    tag: 'Hot Tub',
+    sleeps: 4,
+    beds: '2 bedrooms',
+    price: 145,
+    desc: 'A snug two-bedroom cedar cabin with private hot tub and a sun-trap deck overlooking rolling Devon hills.',
+    feats: ['Private hot tub', 'Wood burner', 'Dog friendly', 'WiFi'],
+    img: 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?auto=format&fit=crop&w=900&q=80'
+  },
+  {
+    name: 'Seabreeze Cabin',
+    tag: 'Sea Glimpse',
+    sleeps: 6,
+    beds: '3 bedrooms',
+    price: 189,
+    desc: 'Spacious family lodge with vaulted ceilings, a modern open-plan kitchen and glimpses of the bay from the master suite.',
+    feats: ['Sea glimpse', 'Hot tub', 'Open-plan living', 'Parking'],
+    img: 'https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&w=900&q=80'
+  },
+  {
+    name: 'Foxglove Retreat',
+    tag: 'Couples',
+    sleeps: 2,
+    beds: '1 bedroom',
+    price: 119,
+    desc: 'A romantic one-bedroom hideaway tucked among the trees — perfect for a cosy couples\' escape with a private firepit.',
+    feats: ['Firepit', 'Wood burner', 'Romantic', 'WiFi'],
+    img: 'https://images.unsplash.com/photo-1483721310020-03333e577078?auto=format&fit=crop&w=900&q=80'
+  }
+];
+
+const caravans = [
+  {
+    name: 'Bayview 6-Berth',
+    tag: 'Family',
+    sleeps: 6,
+    beds: '2 bedrooms',
+    price: 79,
+    desc: 'Bright and roomy six-berth static caravan with decked veranda, ideal for families exploring the North Devon coast.',
+    feats: ['Decking', 'Dog friendly', 'Parking', 'WiFi'],
+    img: 'https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?auto=format&fit=crop&w=900&q=80'
+  },
+  {
+    name: 'Coastal Comfort',
+    tag: 'Great Value',
+    sleeps: 4,
+    beds: '2 bedrooms',
+    price: 65,
+    desc: 'Comfortable and well-equipped four-berth van on a quiet corner of the park, footsteps from the coast path.',
+    feats: ['Quiet plot', 'Central heating', 'Parking', 'WiFi'],
+    img: 'https://images.unsplash.com/photo-1469796466635-455ede028aca?auto=format&fit=crop&w=900&q=80'
+  },
+  {
+    name: 'Sandpiper Deluxe',
+    tag: 'Premium',
+    sleeps: 8,
+    beds: '3 bedrooms',
+    price: 99,
+    desc: 'Our largest caravan — a premium eight-berth with two bathrooms and a wraparound deck for big family gatherings.',
+    feats: ['8 berth', '2 bathrooms', 'Wraparound deck', 'WiFi'],
+    img: 'https://images.unsplash.com/photo-1533873984035-25970ab07461?auto=format&fit=crop&w=900&q=80'
+  }
+];
+
+// --- Render cards --------------------------------------------------
+function cardHTML(p) {
+  const feats = p.feats.map(f => `<li>${f}</li>`).join('');
+  return `
+    <article class="card">
+      <div class="card-img" style="background-image:url('${p.img}')">
+        <span class="card-tag">${p.tag}</span>
+      </div>
+      <div class="card-body">
+        <h3>${p.name}</h3>
+        <p class="card-meta">Sleeps ${p.sleeps} · ${p.beds}</p>
+        <p class="card-desc">${p.desc}</p>
+        <ul class="card-feats">${feats}</ul>
+        <div class="card-foot">
+          <span class="price">£${p.price} <small>/ night</small></span>
+          <a href="#book" class="btn btn-primary" data-property="${p.name}">Enquire</a>
+        </div>
+      </div>
+    </article>`;
+}
+
+function render(targetId, list) {
+  const el = document.getElementById(targetId);
+  if (el) el.innerHTML = list.map(cardHTML).join('');
+}
+
+render('cabin-cards', cabins);
+render('caravan-cards', caravans);
+
+// --- Mobile nav toggle ---------------------------------------------
+const toggle = document.querySelector('.nav-toggle');
+const menu = document.getElementById('nav-menu');
+if (toggle && menu) {
+  toggle.addEventListener('click', () => {
+    const open = menu.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+  menu.addEventListener('click', (e) => {
+    if (e.target.tagName === 'A') {
+      menu.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
+// --- Prefill property in form when "Enquire" clicked ---------------
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('[data-property]');
+  if (!link) return;
+  const name = link.getAttribute('data-property');
+  const isCabin = cabins.some(c => c.name === name);
+  const select = document.querySelector('select[name="property"]');
+  const msg = document.querySelector('textarea[name="message"]');
+  if (select) select.value = isCabin ? 'cabin' : 'caravan';
+  if (msg && !msg.value) msg.value = `I'd like to enquire about ${name}.`;
+});
+
+// --- Booking form handling -----------------------------------------
+const form = document.getElementById('booking-form');
+const status = document.getElementById('form-status');
+if (form) {
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    status.className = 'form-status';
+    const data = new FormData(form);
+    const arrive = data.get('arrive');
+    const depart = data.get('depart');
+
+    if (!data.get('name') || !data.get('email') || !arrive || !depart) {
+      status.textContent = 'Please complete the required fields.';
+      status.classList.add('err');
+      return;
+    }
+    if (new Date(depart) <= new Date(arrive)) {
+      status.textContent = 'Your departure date must be after your arrival date.';
+      status.classList.add('err');
+      return;
+    }
+
+    // No backend in this static build — confirm receipt to the guest.
+    status.textContent = `Thank you, ${data.get('name')}! We'll email you availability for ${arrive} → ${depart} shortly.`;
+    status.classList.add('ok');
+    form.reset();
+  });
+}
+
+// --- Footer year ---------------------------------------------------
+const yearEl = document.getElementById('year');
+if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  </script>
+</body>
+</html>
