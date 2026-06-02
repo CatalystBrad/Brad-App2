@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Catalyst Dispatch</title>
+<meta name="theme-color" content="#0a1020" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Catalyst" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<script src="arcade.js"></script>
+<script src="claim.js"></script>
+<style>
+  :root {
+    --bg0:#160d28; --glass:rgba(255,255,255,.07); --line:rgba(255,255,255,.14);
+    --txt:#eaf1fb; --muted:#b6a6d6; --brand:#7C3AED; --brand2:#E0218A; --blue:#7C3AED; --cyan:#E0218A;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
+  html,body { margin:0; min-height:100%; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--txt); background:var(--bg0); overflow:hidden;
+    display:flex; flex-direction:column; align-items:center; min-height:100vh;
+    padding-top:max(0px,env(safe-area-inset-top));
+  }
+  body::before { content:""; position:fixed; inset:0; z-index:-1;
+    background:radial-gradient(80vmax 60vmax at 50% -10%, rgba(124,58,237,.20), transparent 60%),
+               radial-gradient(70vmax 50vmax at 50% 120%, rgba(224,33,138,.14), transparent 60%); }
+
+  .topbar { width:100%; max-width:860px; display:flex; align-items:center; gap:10px; padding:12px 14px; }
+  .topbar a { color:var(--brand2); text-decoration:none; font-weight:700; font-size:14px; }
+  .brand { display:flex; align-items:center; gap:9px; }
+  .logo {
+    width:34px; height:34px; background:transparent;
+    display:flex; align-items:center; justify-content:center; filter:drop-shadow(0 4px 12px rgba(124,58,237,.5));
+  }
+  .logo svg { width:32px; height:32px; }
+  .wordmark { font-weight:900; letter-spacing:.5px; font-size:16px; }
+  .wordmark small { display:block; font-weight:600; font-size:9px; letter-spacing:2.5px; color:var(--muted); margin-top:-2px; }
+  .icobtn {
+    margin-left:auto; width:36px; height:36px; border-radius:11px; border:1px solid var(--line); background:var(--glass);
+    color:var(--txt); font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .icobtn:active { transform:scale(.92); }
+
+  .hud { width:100%; max-width:860px; display:flex; gap:8px; padding:0 14px 10px; flex-wrap:wrap; }
+  .chip {
+    background:var(--glass); border:1px solid var(--line); border-radius:13px; padding:6px 12px;
+    font-size:13px; font-weight:700; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    display:flex; gap:6px; align-items:center;
+  }
+  .chip .lbl { color:var(--muted); font-weight:600; font-size:11px; }
+  .chip .v { color:var(--brand2); }
+
+  .stage { position:relative; width:100%; max-width:860px; padding:0 14px; }
+  canvas {
+    display:block; width:100%; height:auto; border-radius:18px; touch-action:none;
+    box-shadow:0 20px 50px rgba(0,0,0,.5); border:1px solid var(--line);
+  }
+  .crewbar { width:100%; max-width:860px; padding:12px 16px 24px; }
+  .crewbar .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1.5px; font-weight:700; margin-bottom:6px; }
+  .pips { display:flex; gap:7px; }
+  .pip { flex:1; height:12px; border-radius:6px; background:rgba(255,255,255,.1); overflow:hidden; position:relative; }
+  .pip .fill { position:absolute; inset:0; transform-origin:left; background:linear-gradient(90deg,var(--brand),var(--brand2)); border-radius:6px; }
+
+  .overlay {
+    position:absolute; inset:0 14px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:26px; border-radius:18px;
+    background:rgba(10,16,32,.86); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    transition:opacity .25s;
+  }
+  .overlay.hidden { opacity:0; pointer-events:none; }
+  .overlay .biglogo {
+    width:72px; height:72px; background:transparent;
+    display:flex; align-items:center; justify-content:center; margin-bottom:12px; filter:drop-shadow(0 10px 26px rgba(124,58,237,.5));
+  }
+  .overlay .biglogo svg { width:68px; height:68px; }
+  .overlay h2 { font-size:28px; margin:0 0 4px; font-weight:900; letter-spacing:.3px; }
+  .overlay .tag { font-size:10px; letter-spacing:3px; color:var(--muted); font-weight:700; margin-bottom:12px; }
+  .overlay p { font-size:15px; color:var(--muted); line-height:1.55; margin:0 0 6px; max-width:460px; }
+  .overlay .big { font-size:20px; font-weight:800; color:var(--brand2); margin:10px 0; min-height:24px; }
+  .btn {
+    margin-top:14px; border:none; padding:15px 40px; border-radius:30px; font-size:18px; font-weight:800; cursor:pointer;
+    color:#1a0e00; background:linear-gradient(135deg,var(--brand),var(--brand2));
+    box-shadow:0 10px 28px rgba(255,122,0,.45); transition:transform .1s;
+  }
+  .btn:active { transform:scale(.96); }
+  .legend { display:flex; gap:14px; justify-content:center; margin-top:14px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
+  .legend span b { color:var(--txt); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">←</a>
+    <div class="brand">
+      <span class="logo" id="logoMark"></span>
+      <span class="wordmark">CATALYST<small>DISPATCH</small></span>
+    </div>
+    <button class="icobtn" id="muteBtn" title="Sound"></button>
+  </div>
+
+  <div class="hud">
+    <div class="chip"><span class="lbl">Score</span><span class="v" id="score">0</span></div>
+    <div class="chip"><span class="lbl">Best</span><span class="v" id="best">0</span></div>
+    <div class="chip"><span class="lbl">Shift</span><span class="v" id="level">1</span></div>
+    <div class="chip"><span class="lbl">Rep</span><span class="v" id="lives">❤️❤️❤️</span></div>
+  </div>
+
+  <div id="banner" style="width:100%;max-width:860px;padding:0 14px 12px"></div>
+
+  <div class="stage">
+    <canvas id="game" width="800" height="500"></canvas>
+
+    <div class="overlay" id="startOverlay">
+      <div class="biglogo" id="logoBig"></div>
+      <h2>Catalyst Dispatch</h2>
+      <div class="tag">SERVICES UK · CONTROL CENTRE</div>
+      <p>Service callouts are coming in across the patch. Tap a job to send a Catalyst crew from HQ and clear it before its SLA timer expires.</p>
+      <div class="legend">
+        <span>🕳️ <b>Routine</b></span>
+        <span>🚰 <b>Urgent</b></span>
+        <span>🚨 <b>Emergency</b></span>
+      </div>
+      <button class="btn" id="startBtn">Start Shift</button>
+    </div>
+
+    <div class="overlay hidden" id="overOverlay">
+      <div class="biglogo" id="logoOver"></div>
+      <h2 id="overTitle">Shift Over</h2>
+      <div class="tag">END OF SHIFT REPORT</div>
+      <p id="overStats">Jobs cleared: 0</p>
+      <p class="big" id="overBest"></p>
+      <button class="btn" id="againBtn">New Shift</button>
+    </div>
+  </div>
+
+  <div class="crewbar">
+    <div class="label">Available Crews</div>
+    <div class="pips" id="pips"></div>
+  </div>
+
+<script>
+(function () {
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width, H = canvas.height;
+
+  var BEST_KEY = "catalyst_dispatch_best";
+  var MAX_CREW = 3;
+
+  var scoreEl = document.getElementById("score");
+  var bestEl = document.getElementById("best");
+  var levelEl = document.getElementById("level");
+  var livesEl = document.getElementById("lives");
+  var pipsEl = document.getElementById("pips");
+  var startOverlay = document.getElementById("startOverlay");
+  var overOverlay = document.getElementById("overOverlay");
+  var overStats = document.getElementById("overStats");
+  var overBest = document.getElementById("overBest");
+
+  // Catalyst droplet + spark mark (shared brand mark)
+  var LOGO = (window.Arcade && Arcade.MARK) || '<svg viewBox="0 0 100 100"><path d="M50 16 C68 42 80 58 50 86 C20 58 32 42 50 16 Z" fill="#fff"/></svg>';
+  document.getElementById("logoMark").innerHTML = LOGO;
+  document.getElementById("logoBig").innerHTML = LOGO;
+  document.getElementById("logoOver").innerHTML = LOGO;
+
+  var HQ = { x: 400, y: 250 };
+  var NODES = [
+    {x:140,y:110},{x:400,y:90},{x:660,y:110},{x:120,y:260},
+    {x:680,y:260},{x:170,y:410},{x:410,y:430},{x:650,y:410}
+  ];
+  var TYPES = {
+    routine:   { icon:"🕳️", color:"#22d3ee", pts:100, ttl:7.5 },
+    urgent:    { icon:"🚰", color:"#f59e0b", pts:200, ttl:5.5 },
+    emergency: { icon:"🚨", color:"#ef4444", pts:350, ttl:3.6 }
+  };
+
+  var jobs = [], vans = [], particles = [], floats = [];
+  var score = 0, level = 1, lives = 3, cleared = 0, combo = 0, lastClear = 0;
+  var crew = MAX_CREW, crewTimer = 0, spawnTimer = 0;
+  var running = false, lastT = 0, shake = 0, flash = 0, flashColor = "163,230,53";
+  var best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0;
+  bestEl.textContent = best;
+
+  var CAMPAIGN = new URLSearchParams(location.search).has("claim") && window.Claim && !!Claim.load();
+  var missed = 0, campaignTarget = 6, campaignFinished = false;
+
+  function buildPips(){
+    pipsEl.innerHTML = "";
+    for (var i=0;i<MAX_CREW;i++){
+      var p=document.createElement("div"); p.className="pip";
+      var f=document.createElement("div"); f.className="fill"; p.appendChild(f);
+      pipsEl.appendChild(p);
+    }
+  }
+  buildPips();
+  var pipFills = function(){ return pipsEl.querySelectorAll(".fill"); };
+
+  function rechargeTime(){ return Math.max(0.7, 1.7 - level*0.05); }
+  function spawnInterval(){ return Math.max(0.75, 2.0 - level*0.08); }
+
+  function freeNode(){
+    var used = {};
+    jobs.forEach(function(j){ used[j.ni]=true; });
+    var avail = [];
+    for (var i=0;i<NODES.length;i++) if(!used[i]) avail.push(i);
+    if(!avail.length) return -1;
+    return avail[Math.floor(Math.random()*avail.length)];
+  }
+
+  function spawnJob(){
+    var ni = freeNode(); if(ni<0) return;
+    var roll = Math.random();
+    var emgChance = Math.min(0.45, 0.12 + level*0.03);
+    var urgChance = 0.4;
+    var type = roll < emgChance ? "emergency" : (roll < emgChance+urgChance ? "urgent" : "routine");
+    var cfg = TYPES[type];
+    var ttl = cfg.ttl * Math.max(0.55, 1 - level*0.04);
+    jobs.push({ ni:ni, x:NODES[ni].x, y:NODES[ni].y, type:type, ttl:ttl, max:ttl, dispatched:false, pop:0 });
+  }
+
+  function dispatch(job){
+    if(job.dispatched || crew<=0) return;
+    job.dispatched = true; crew--;
+    vans.push({ x:HQ.x, y:HQ.y, fromX:HQ.x, fromY:HQ.y, toX:job.x, toY:job.y, t:0,
+      dur:Math.max(0.28, Math.hypot(job.x-HQ.x, job.y-HQ.y)/620), job:job });
+    if(window.Arcade) Arcade.sfx.select();
+  }
+
+  function clearJob(job){
+    var i = jobs.indexOf(job); if(i>=0) jobs.splice(i,1);
+    var t = performance.now()/1000;
+    combo = (t-lastClear < 1.8) ? combo+1 : 1; lastClear = t;
+    var pts = Math.round(TYPES[job.type].pts * (1 + (combo-1)*0.25));
+    score += pts; cleared++;
+    scoreEl.textContent = score;
+    floats.push({x:job.x, y:job.y-18, vy:-1.1, life:1, txt:"+"+pts+(combo>1?(" x"+combo):""), c:combo>1?"#a3e635":"#fff"});
+    burst(job.x, job.y, TYPES[job.type].color);
+    shake = 6; flash = 8; flashColor = "163,230,53";
+    if(window.Arcade){ Arcade.sfx.capture(); if(combo>1) Arcade.sfx.combo(Math.min(combo,6)); }
+    if(cleared % 8 === 0){ level++; levelEl.textContent=level; if(window.Arcade) Arcade.sfx.levelup(); }
+    if(CAMPAIGN){ var ov=document.getElementById("objv"); if(ov) ov.textContent=Math.min(cleared,campaignTarget); }
+    if(CAMPAIGN && cleared>=campaignTarget) finishDispatch();
+  }
+
+  function finishDispatch(){
+    if(campaignFinished) return; campaignFinished=true; running=false;
+    var stars = missed===0?3 : missed<=2?2:1;
+    document.getElementById("overTitle").textContent="Crew Dispatched ✓";
+    overStats.textContent="Cleared "+cleared+" callouts · "+missed+" missed · Score "+score;
+    overBest.textContent = stars===3?"On time, every job — great SLA performance!" : stars===2?"Good response across the patch." : "Some jobs breached SLA.";
+    // Replace the button to drop the free-play "New Shift" handler, then wire the hand-off.
+    var ab=document.getElementById("againBtn");
+    var nb=ab.cloneNode(true); ab.parentNode.replaceChild(nb,ab);
+    nb.textContent="Repair the leak →";
+    nb.addEventListener("click", function(){ Claim.completeDispatch({stars:stars, missed:missed, score:score, cleared:cleared}); });
+    overOverlay.classList.remove("hidden");
+    if(window.Arcade){ Arcade.stopMusic(); Arcade.sfx.levelup(); }
+  }
+
+  function expireJob(job){
+    var i = jobs.indexOf(job); if(i>=0) jobs.splice(i,1);
+    lives--; missed++; combo=0; livesEl.textContent = "❤️".repeat(Math.max(0,lives)) || "—";
+    shake = 12; flash = 14; flashColor = "239,68,68";
+    if(window.Arcade) Arcade.sfx.fail();
+    if(lives<=0) gameOver();
+  }
+
+  function burst(x,y,color){
+    for(var i=0;i<16;i++){ var a=Math.random()*Math.PI*2, sp=2+Math.random()*4;
+      particles.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,c:color,r:2+Math.random()*2.5}); }
+  }
+
+  function update(dt){
+    // crew recharge
+    if(crew < MAX_CREW){ crewTimer += dt; if(crewTimer >= rechargeTime()){ crewTimer=0; crew++; if(window.Arcade) Arcade.sfx.step(); } }
+    var partial = crew < MAX_CREW ? crewTimer/rechargeTime() : 0;
+    var fills = pipFills();
+    for(var c=0;c<MAX_CREW;c++){
+      var sx = c < crew ? 1 : (c === crew ? partial : 0);
+      fills[c].style.transform = "scaleX("+sx+")";
+    }
+
+    // spawn
+    spawnTimer += dt;
+    if(spawnTimer >= spawnInterval()){ spawnTimer = 0; spawnJob(); }
+
+    // jobs timers
+    for(var i=jobs.length-1;i>=0;i--){ var j=jobs[i];
+      if(j.pop<1) j.pop=Math.min(1,j.pop+dt*6);
+      if(!j.dispatched){ j.ttl -= dt; if(j.ttl<=0) expireJob(j); }
+    }
+
+    // vans
+    for(var v=vans.length-1;v>=0;v--){ var van=vans[v];
+      van.t += dt/van.dur;
+      if(van.t>=1){ clearJob(van.job); vans.splice(v,1); }
+      else { van.x = van.fromX + (van.toX-van.fromX)*van.t; van.y = van.fromY + (van.toY-van.fromY)*van.t; }
+    }
+
+    for(var p=particles.length-1;p>=0;p--){ var pt=particles[p];
+      pt.vy+=0.12; pt.x+=pt.vx; pt.y+=pt.vy; pt.life-=0.03; if(pt.life<=0) particles.splice(p,1); }
+    for(var f=floats.length-1;f>=0;f--){ var ft=floats[f]; ft.y+=ft.vy; ft.life-=0.016; if(ft.life<=0) floats.splice(f,1); }
+    if(shake>0) shake-=dt*60; if(flash>0) flash-=dt*60;
+  }
+
+  function drawMap(){
+    var g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,"#101c30"); g.addColorStop(1,"#0a1322");
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // street grid
+    ctx.strokeStyle="rgba(120,160,210,0.07)"; ctx.lineWidth=2;
+    for(var x=60;x<W;x+=80){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(var y=60;y<H;y+=80){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    // roads from HQ to each node
+    ctx.strokeStyle="rgba(255,255,255,0.05)"; ctx.lineWidth=6;
+    for(var i=0;i<NODES.length;i++){ ctx.beginPath(); ctx.moveTo(HQ.x,HQ.y); ctx.lineTo(NODES[i].x,NODES[i].y); ctx.stroke(); }
+    // site nodes
+    for(var n=0;n<NODES.length;n++){ var nd=NODES[n];
+      ctx.fillStyle="rgba(255,255,255,0.06)"; ctx.beginPath(); ctx.arc(nd.x,nd.y,22,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle="rgba(255,255,255,0.14)"; ctx.lineWidth=2; ctx.stroke();
+    }
+  }
+
+  function drawHQ(){
+    ctx.save();
+    ctx.shadowColor="rgba(124,58,237,.6)"; ctx.shadowBlur=18;
+    var g=ctx.createLinearGradient(HQ.x-26,HQ.y-26,HQ.x+26,HQ.y+26);
+    g.addColorStop(0,"#7C3AED"); g.addColorStop(1,"#E0218A");
+    ctx.fillStyle=g; roundRect(HQ.x-26,HQ.y-26,52,52,14); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle="#1a0e00"; ctx.font="bold 11px -apple-system,sans-serif"; ctx.textAlign="center";
+    ctx.fillText("HQ", HQ.x, HQ.y+4);
+  }
+
+  function drawJob(j){
+    var cfg=TYPES[j.type];
+    var s=j.pop; var r=22*s;
+    // SLA ring
+    var frac=Math.max(0,j.ttl/j.max);
+    ctx.lineWidth=5; ctx.strokeStyle="rgba(0,0,0,.35)";
+    ctx.beginPath(); ctx.arc(j.x,j.y,26,0,Math.PI*2); ctx.stroke();
+    ctx.strokeStyle=cfg.color; ctx.lineWidth=5; ctx.lineCap="round";
+    ctx.beginPath(); ctx.arc(j.x,j.y,26,-Math.PI/2, -Math.PI/2 + frac*Math.PI*2); ctx.stroke();
+    ctx.lineCap="butt";
+    // pulse when low
+    if(frac<0.35 && !j.dispatched){ var pulse=0.5+0.5*Math.sin(performance.now()/120);
+      ctx.fillStyle="rgba(239,68,68,"+(0.25*pulse)+")"; ctx.beginPath(); ctx.arc(j.x,j.y,30,0,Math.PI*2); ctx.fill(); }
+    // node body
+    ctx.fillStyle=j.dispatched?"rgba(120,200,235,0.25)":"rgba(255,255,255,0.12)";
+    ctx.beginPath(); ctx.arc(j.x,j.y,r,0,Math.PI*2); ctx.fill();
+    // icon
+    ctx.font=(20*s)+"px -apple-system,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(cfg.icon, j.x, j.y+1);
+    ctx.textBaseline="alphabetic";
+    if(j.dispatched){ ctx.fillStyle="#a3e635"; ctx.font="10px sans-serif"; ctx.fillText("🚐", j.x+18, j.y-16); }
+  }
+
+  function drawVan(v){
+    ctx.font="22px -apple-system,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    // trail
+    ctx.strokeStyle="rgba(255,179,64,0.5)"; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(v.fromX,v.fromY); ctx.lineTo(v.x,v.y); ctx.stroke();
+    ctx.fillText("🚐", v.x, v.y);
+    ctx.textBaseline="alphabetic";
+  }
+
+  function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  function render(){
+    ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,W,H);
+    drawMap();
+    if(shake>0) ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
+    drawHQ();
+    for(var i=0;i<jobs.length;i++) drawJob(jobs[i]);
+    for(var v=0;v<vans.length;v++) drawVan(vans[v]);
+    for(var p=0;p<particles.length;p++){ var pt=particles[p];
+      ctx.globalAlpha=Math.max(0,pt.life); ctx.fillStyle=pt.c;
+      ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r,0,Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha=1;
+    ctx.textAlign="center"; ctx.font="bold 17px -apple-system,sans-serif";
+    for(var f=0;f<floats.length;f++){ var ft=floats[f];
+      ctx.globalAlpha=Math.max(0,ft.life); ctx.fillStyle=ft.c; ctx.fillText(ft.txt, ft.x, ft.y); }
+    ctx.globalAlpha=1;
+    if(flash>0){ ctx.fillStyle="rgba("+flashColor+","+(flash/28)+")"; ctx.fillRect(-20,-20,W+40,H+40); }
+    ctx.setTransform(1,0,0,1,0,0);
+    var vg=ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,H*0.8);
+    vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(0,0,0,0.42)");
+    ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+  }
+
+  function loop(now){
+    var dt = lastT ? Math.min(0.05,(now-lastT)/1000) : 0; lastT=now;
+    if(running) update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function pointerToCanvas(e){
+    var rect=canvas.getBoundingClientRect();
+    var cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+    var cy=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+    return { x:cx*(W/rect.width), y:cy*(H/rect.height) };
+  }
+  function onPoint(e){
+    if(!running) return;
+    e.preventDefault();
+    var pt=pointerToCanvas(e);
+    var bestJob=null, bestD=44;
+    for(var i=0;i<jobs.length;i++){ var j=jobs[i]; if(j.dispatched) continue;
+      var d=Math.hypot(j.x-pt.x, j.y-pt.y); if(d<bestD){ bestD=d; bestJob=j; } }
+    if(bestJob) dispatch(bestJob);
+  }
+  canvas.addEventListener("mousedown", onPoint);
+  canvas.addEventListener("touchstart", onPoint, {passive:false});
+
+  function startGame(){
+    if(campaignFinished) return;
+    jobs=[]; vans=[]; particles=[]; floats=[];
+    score=0; level=1; lives=3; cleared=0; combo=0; lastClear=0; missed=0;
+    if(CAMPAIGN){ var cc=Claim.load(); level=cc.severity; campaignTarget=4+cc.severity; levelEl.textContent=level;
+      var ot=document.getElementById("objt"); if(ot) ot.textContent=campaignTarget;
+      var ov=document.getElementById("objv"); if(ov) ov.textContent="0"; }
+    crew=MAX_CREW; crewTimer=0; spawnTimer=0; lastT=0;
+    scoreEl.textContent="0"; levelEl.textContent="1"; livesEl.textContent="❤️❤️❤️";
+    running=true;
+    startOverlay.classList.add("hidden"); overOverlay.classList.add("hidden");
+    spawnJob(); spawnJob();
+    if(window.Arcade) Arcade.startMusic("chase");
+  }
+
+  function gameOver(){
+    if(CAMPAIGN){ finishDispatch(); return; }
+    running=false;
+    if(score>best){ best=score; localStorage.setItem(BEST_KEY,String(best)); bestEl.textContent=best; }
+    overStats.textContent="Jobs cleared: "+cleared+"  ·  Score: "+score+"  ·  Shift "+level;
+    overBest.textContent = (score>=best ? "🏆 New record!" : "Best score: "+best);
+    overOverlay.classList.remove("hidden");
+    if(window.Arcade){ Arcade.stopMusic(); Arcade.sfx.win(); }
+  }
+
+  document.getElementById("startBtn").addEventListener("click", startGame);
+  document.getElementById("againBtn").addEventListener("click", startGame);
+  if(window.Arcade) Arcade.bindMute("muteBtn");
+  if(CAMPAIGN && window.Claim){
+    Claim.mountBanner("banner","dispatch");
+    var cc=Claim.load(), tgt=4+cc.severity;
+    var hud=document.querySelector(".hud");
+    var chip=document.createElement("div"); chip.className="chip";
+    chip.innerHTML='<span class="lbl">Callouts</span><span class="v" id="objv">0</span>/<span id="objt">'+tgt+'</span>';
+    hud.appendChild(chip);
+    var sp=document.querySelector("#startOverlay p");
+    if(sp) sp.textContent="Claim #"+cc.id+" — clear "+tgt+" callouts to get a crew to "+cc.customer+"'s property within SLA.";
+    document.getElementById("startBtn").textContent="Dispatch crews";
+  }
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

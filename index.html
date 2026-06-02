@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Catalyst Arcade</title>
+<meta name="theme-color" content="#2A1745" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Catalyst" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<script src="arcade.js"></script>
+<script src="claim.js"></script>
+<style>
+  :root {
+    --bg0:#160d28; --bg1:#1d1238; --glass:rgba(255,255,255,.055);
+    --line:rgba(255,255,255,.12); --txt:#eaf1fb; --muted:#b6a6d6;
+    --cyan:#E0218A; --blue:#7C3AED; --violet:#5B2A86; --lime:#a3e635; --green:#34d399;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; min-height:100%; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--txt); background:var(--bg0); overflow-x:hidden;
+    display:flex; align-items:center; justify-content:center; padding:28px 20px;
+    min-height:100vh;
+  }
+  /* animated aurora background */
+  body::before, body::after {
+    content:""; position:fixed; width:60vmax; height:60vmax; border-radius:50%;
+    filter:blur(80px); opacity:.55; z-index:-1; animation:float 18s ease-in-out infinite;
+  }
+  body::before { background:radial-gradient(circle,var(--blue),transparent 60%); top:-15vmax; left:-10vmax; }
+  body::after  { background:radial-gradient(circle,var(--violet),transparent 60%); bottom:-18vmax; right:-12vmax; animation-delay:-9s; }
+  @keyframes float { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(4vmax,3vmax) scale(1.15);} }
+
+  .wrap { width:100%; max-width:480px; position:relative; }
+  .brand { text-align:center; margin-bottom:30px; }
+  .brand .logo {
+    display:inline-flex; align-items:center; justify-content:center; width:74px; height:74px;
+    border-radius:22px; font-size:40px; margin-bottom:14px;
+    background:transparent; padding:6px;
+    filter:drop-shadow(0 10px 26px rgba(124,58,237,.5));
+  }
+  .brand h1 { font-size:32px; margin:0 0 4px; font-weight:900; letter-spacing:-.02em; }
+  .brand h1 .uk { color:var(--cyan); }
+  .brand .tag { color:var(--muted); font-size:13.5px; }
+  .brand .tagline { color:#6f86a6; font-size:12px; margin-top:3px; letter-spacing:.2px; }
+
+  .card {
+    display:block; text-decoration:none; color:inherit; position:relative; overflow:hidden;
+    background:var(--glass); border:1px solid var(--line); border-radius:22px;
+    padding:20px; margin-bottom:16px; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+    transition:transform .12s ease, border-color .2s ease, box-shadow .2s ease;
+  }
+  .card::after {
+    content:""; position:absolute; inset:0; border-radius:22px; padding:1px; pointer-events:none;
+    background:linear-gradient(120deg,transparent,rgba(255,255,255,.25),transparent);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; opacity:0; transition:opacity .25s;
+  }
+  .card:hover { transform:translateY(-3px); border-color:rgba(255,255,255,.22); box-shadow:0 18px 44px rgba(0,0,0,.45); }
+  .card:hover::after { opacity:1; }
+  .card:active { transform:scale(.985); }
+  .row { display:flex; align-items:center; gap:16px; }
+  .icon {
+    width:66px; height:66px; flex:none; border-radius:18px;
+    display:flex; align-items:center; justify-content:center; font-size:34px;
+  }
+  .icon.g1 { background:linear-gradient(135deg,var(--cyan),var(--blue)); box-shadow:0 8px 22px rgba(34,211,238,.4); }
+  .icon.g2 { background:linear-gradient(135deg,var(--green),var(--lime)); box-shadow:0 8px 22px rgba(52,211,153,.4); }
+  .icon.g3 { background:linear-gradient(135deg,#29B6A8,#7C3AED); box-shadow:0 8px 22px rgba(124,58,237,.45); }
+  .icon.feat { background:linear-gradient(135deg,#7C3AED,#E0218A); box-shadow:0 8px 22px rgba(124,58,237,.5); }
+  .card.feature { background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(224,33,138,.10)); border-color:rgba(224,33,138,.45); color:inherit; font:inherit; }
+  .card.feature h2 { font-size:22px; }
+  .freeplay { font-size:11px; letter-spacing:2.4px; text-transform:uppercase; color:#6f86a6; font-weight:800; margin:20px 4px 12px; }
+  .num { font-size:11px; font-weight:800; letter-spacing:1.4px; color:var(--muted); text-transform:uppercase; }
+  .card h2 { margin:3px 0 4px; font-size:21px; font-weight:800; letter-spacing:-.01em; }
+  .card p { margin:0; font-size:13.5px; color:var(--muted); line-height:1.45; }
+  .play {
+    margin-left:auto; width:40px; height:40px; flex:none; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+    background:rgba(255,255,255,.1); border:1px solid var(--line);
+  }
+  .foot { text-align:center; color:#5d7390; font-size:12px; margin-top:22px; letter-spacing:.3px; }
+  .mute {
+    position:fixed; top:max(14px,env(safe-area-inset-top)); right:14px; z-index:10;
+    width:42px; height:42px; border-radius:13px; border:1px solid var(--line);
+    background:var(--glass); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    color:#fff; font-size:18px; cursor:pointer;
+  }
+  .mute:active { transform:scale(.92); }
+</style>
+</head>
+<body>
+  <button class="mute" id="muteBtn" title="Sound"></button>
+  <div class="wrap">
+    <div class="brand">
+      <div class="logo" id="logo"></div>
+      <h1>Catalyst <span class="uk">Arcade</span></h1>
+      <div class="tag">Mini-games by Catalyst Services UK</div>
+      <div class="tagline">Drainage · water supply · subsidence · home emergency · environmental</div>
+    </div>
+
+    <button class="card feature" id="journeyCard" style="width:100%;text-align:left;cursor:pointer">
+      <div class="row">
+        <div class="icon feat">🧭</div>
+        <div>
+          <div class="num" id="journeyNum">Claim Journey · Campaign</div>
+          <h2 id="journeyTitle">Start a Claim</h2>
+          <p id="journeyDesc">Take one claim from first call to settled — setup, dispatch &amp; repair.</p>
+        </div>
+        <div class="play">▶</div>
+      </div>
+    </button>
+
+    <div id="newClaimRow" style="display:none;text-align:center;margin:-4px 0 14px">
+      <button id="newClaimBtn" style="background:none;border:none;color:#6f86a6;font-size:13px;text-decoration:underline;cursor:pointer">Start a new claim instead</button>
+    </div>
+
+    <div class="freeplay">Free play</div>
+
+    <a class="card" href="game1-water-leak.html">
+      <div class="row">
+        <div class="icon g1">🚰</div>
+        <div>
+          <div class="num">Game 1</div>
+          <h2>Fix the Water Leak</h2>
+          <p>Rotate the pipes to route the flow from the inlet to the drain.</p>
+        </div>
+        <div class="play">▶</div>
+      </div>
+    </a>
+
+    <a class="card" href="game2-rat-chase.html">
+      <div class="row">
+        <div class="icon g2">🐀</div>
+        <div>
+          <div class="num">Game 2</div>
+          <h2>Rat Chase</h2>
+          <p>Run and jump across the sewer platforms to capture every rat.</p>
+        </div>
+        <div class="play">▶</div>
+      </div>
+    </a>
+
+    <a class="card" href="game3-dispatch.html">
+      <div class="row">
+        <div class="icon g3">📟</div>
+        <div>
+          <div class="num">Game 3</div>
+          <h2>Catalyst Dispatch</h2>
+          <p>Send crews from HQ to clear service callouts before the SLA runs out.</p>
+        </div>
+        <div class="play">▶</div>
+      </div>
+    </a>
+
+    <div class="foot">Catalyst Services UK · 2026</div>
+  </div>
+  <script>
+    if (window.Arcade) {
+      document.getElementById("logo").innerHTML = Arcade.MARK;
+      Arcade.bindMute("muteBtn");
+      document.querySelectorAll(".card").forEach(function (c) {
+        c.addEventListener("click", function () { Arcade.sfx.select(); });
+      });
+    }
+    (function () {
+      var jc = document.getElementById("journeyCard");
+      if (!jc || !window.Claim) return;
+      var map = { setup:"claim-setup.html", dispatch:"game3-dispatch.html?claim=1", repair:"game1-water-leak.html?claim=1", result:"claim-result.html" };
+      if (Claim.active()) {
+        var d = Claim.load();
+        var labels = { setup:"Customer setup", dispatch:"Engineer dispatch", repair:"Repairing the leak" };
+        document.getElementById("journeyTitle").textContent = "Resume your claim";
+        document.getElementById("journeyDesc").textContent = "Claim #" + d.id + " · " + d.perilName + " · " + (labels[d.stage] || d.stage);
+        var row = document.getElementById("newClaimRow");
+        row.style.display = "block";
+        document.getElementById("newClaimBtn").addEventListener("click", function (e) {
+          e.stopPropagation();
+          if (window.Arcade) Arcade.sfx.select();
+          Claim.reset(); Claim.start();
+        });
+      }
+      jc.addEventListener("click", function () {
+        if (Claim.active()) { var d = Claim.load(); location.href = map[d.stage] || "claim-setup.html"; }
+        else Claim.start();
+      });
+    })();
+  </script>
+</body>
+</html>
