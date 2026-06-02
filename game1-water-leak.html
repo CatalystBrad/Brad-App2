@@ -175,8 +175,7 @@
   var musicStarted = false;
   var best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0;
 
-  var CAMPAIGN = new URLSearchParams(location.search).has("claim") && window.Claim &&
-    (function(){ var c=Claim.load(); return !!(c && c.stage==="repair"); })();
+  var CAMPAIGN = new URLSearchParams(location.search).has("claim") && window.Claim && !!Claim.load();
   if(CAMPAIGN){ var cd=Claim.load(); level = cd.severity===1?1 : cd.severity===2?4:7; }
 
   function gridForLevel(l) { return l < 4 ? 5 : l < 7 ? 6 : 7; }
@@ -363,8 +362,9 @@
     if(CAMPAIGN){
       nextBtn.style.display="none";
       var b=document.getElementById("winNext");
-      b.textContent="Settle the claim →";
-      b.onclick=function(){ Claim.completeRepair({stars:rating, moves:moves, par:par, seconds:seconds}); };
+      var nb=b.cloneNode(true); b.parentNode.replaceChild(nb,b);
+      nb.textContent="Settle the claim →";
+      nb.addEventListener("click", function(){ Claim.completeRepair({stars:rating, moves:moves, par:par, seconds:seconds}); });
     }
     winOverlay.classList.remove("hidden");
     if(window.Arcade) Arcade.sfx.win();

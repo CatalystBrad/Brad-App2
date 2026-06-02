@@ -1,6 +1,6 @@
 /* Catalyst Arcade service worker — network-first so updates land immediately,
    with an offline fallback to the cached copy. */
-var CACHE = "catalyst-arcade-v1";
+var CACHE = "catalyst-arcade-v2";
 
 self.addEventListener("install", function (e) { self.skipWaiting(); });
 self.addEventListener("activate", function (e) {

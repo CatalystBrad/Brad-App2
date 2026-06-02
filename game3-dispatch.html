@@ -184,8 +184,7 @@
   var best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0;
   bestEl.textContent = best;
 
-  var CAMPAIGN = new URLSearchParams(location.search).has("claim") && window.Claim &&
-    (function(){ var c=Claim.load(); return !!(c && c.stage==="dispatch"); })();
+  var CAMPAIGN = new URLSearchParams(location.search).has("claim") && window.Claim && !!Claim.load();
   var missed = 0, campaignTarget = 6, campaignFinished = false;
 
   function buildPips(){
@@ -242,6 +241,7 @@
     shake = 6; flash = 8; flashColor = "163,230,53";
     if(window.Arcade){ Arcade.sfx.capture(); if(combo>1) Arcade.sfx.combo(Math.min(combo,6)); }
     if(cleared % 8 === 0){ level++; levelEl.textContent=level; if(window.Arcade) Arcade.sfx.levelup(); }
+    if(CAMPAIGN){ var ov=document.getElementById("objv"); if(ov) ov.textContent=Math.min(cleared,campaignTarget); }
     if(CAMPAIGN && cleared>=campaignTarget) finishDispatch();
   }
 
@@ -251,8 +251,11 @@
     document.getElementById("overTitle").textContent="Crew Dispatched ✓";
     overStats.textContent="Cleared "+cleared+" callouts · "+missed+" missed · Score "+score;
     overBest.textContent = stars===3?"On time, every job — great SLA performance!" : stars===2?"Good response across the patch." : "Some jobs breached SLA.";
-    var ab=document.getElementById("againBtn"); ab.textContent="Repair the leak →";
-    ab.onclick=function(){ Claim.completeDispatch({stars:stars, missed:missed, score:score, cleared:cleared}); };
+    // Replace the button to drop the free-play "New Shift" handler, then wire the hand-off.
+    var ab=document.getElementById("againBtn");
+    var nb=ab.cloneNode(true); ab.parentNode.replaceChild(nb,ab);
+    nb.textContent="Repair the leak →";
+    nb.addEventListener("click", function(){ Claim.completeDispatch({stars:stars, missed:missed, score:score, cleared:cleared}); });
     overOverlay.classList.remove("hidden");
     if(window.Arcade){ Arcade.stopMusic(); Arcade.sfx.levelup(); }
   }
@@ -419,7 +422,9 @@
     if(campaignFinished) return;
     jobs=[]; vans=[]; particles=[]; floats=[];
     score=0; level=1; lives=3; cleared=0; combo=0; lastClear=0; missed=0;
-    if(CAMPAIGN){ var cc=Claim.load(); level=cc.severity; campaignTarget=4+cc.severity; levelEl.textContent=level; }
+    if(CAMPAIGN){ var cc=Claim.load(); level=cc.severity; campaignTarget=4+cc.severity; levelEl.textContent=level;
+      var ot=document.getElementById("objt"); if(ot) ot.textContent=campaignTarget;
+      var ov=document.getElementById("objv"); if(ov) ov.textContent="0"; }
     crew=MAX_CREW; crewTimer=0; spawnTimer=0; lastT=0;
     scoreEl.textContent="0"; levelEl.textContent="1"; livesEl.textContent="❤️❤️❤️";
     running=true;
@@ -441,7 +446,17 @@
   document.getElementById("startBtn").addEventListener("click", startGame);
   document.getElementById("againBtn").addEventListener("click", startGame);
   if(window.Arcade) Arcade.bindMute("muteBtn");
-  if(CAMPAIGN && window.Claim) Claim.mountBanner("banner","dispatch");
+  if(CAMPAIGN && window.Claim){
+    Claim.mountBanner("banner","dispatch");
+    var cc=Claim.load(), tgt=4+cc.severity;
+    var hud=document.querySelector(".hud");
+    var chip=document.createElement("div"); chip.className="chip";
+    chip.innerHTML='<span class="lbl">Callouts</span><span class="v" id="objv">0</span>/<span id="objt">'+tgt+'</span>';
+    hud.appendChild(chip);
+    var sp=document.querySelector("#startOverlay p");
+    if(sp) sp.textContent="Claim #"+cc.id+" — clear "+tgt+" callouts to get a crew to "+cc.customer+"'s property within SLA.";
+    document.getElementById("startBtn").textContent="Dispatch crews";
+  }
 
   requestAnimationFrame(loop);
 })();
