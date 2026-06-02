@@ -4,6 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Catalyst Arcade</title>
+<meta name="theme-color" content="#070b16" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Catalyst" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<script src="arcade.js"></script>
 <style>
   :root {
     --bg0:#070b16; --bg1:#0d1426; --glass:rgba(255,255,255,.055);
@@ -70,9 +77,17 @@
     background:rgba(255,255,255,.1); border:1px solid var(--line);
   }
   .foot { text-align:center; color:#5d7390; font-size:12px; margin-top:22px; letter-spacing:.3px; }
+  .mute {
+    position:fixed; top:max(14px,env(safe-area-inset-top)); right:14px; z-index:10;
+    width:42px; height:42px; border-radius:13px; border:1px solid var(--line);
+    background:var(--glass); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    color:#fff; font-size:18px; cursor:pointer;
+  }
+  .mute:active { transform:scale(.92); }
 </style>
 </head>
 <body>
+  <button class="mute" id="muteBtn" title="Sound"></button>
   <div class="wrap">
     <div class="brand">
       <div class="logo">🎮</div>
@@ -106,5 +121,13 @@
 
     <div class="foot">Catalyst Services UK · 2026</div>
   </div>
+  <script>
+    if (window.Arcade) {
+      Arcade.bindMute("muteBtn");
+      document.querySelectorAll(".card").forEach(function (c) {
+        c.addEventListener("click", function () { Arcade.sfx.select(); });
+      });
+    }
+  </script>
 </body>
 </html>
