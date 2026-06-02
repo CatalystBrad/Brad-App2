@@ -116,6 +116,10 @@
       </div>
     </button>
 
+    <div id="newClaimRow" style="display:none;text-align:center;margin:-4px 0 14px">
+      <button id="newClaimBtn" style="background:none;border:none;color:#6f86a6;font-size:13px;text-decoration:underline;cursor:pointer">Start a new claim instead</button>
+    </div>
+
     <div class="freeplay">Free play</div>
 
     <a class="card" href="game1-water-leak.html">
@@ -173,6 +177,13 @@
         var labels = { setup:"Customer setup", dispatch:"Engineer dispatch", repair:"Repairing the leak" };
         document.getElementById("journeyTitle").textContent = "Resume your claim";
         document.getElementById("journeyDesc").textContent = "Claim #" + d.id + " · " + d.perilName + " · " + (labels[d.stage] || d.stage);
+        var row = document.getElementById("newClaimRow");
+        row.style.display = "block";
+        document.getElementById("newClaimBtn").addEventListener("click", function (e) {
+          e.stopPropagation();
+          if (window.Arcade) Arcade.sfx.select();
+          Claim.reset(); Claim.start();
+        });
       }
       jc.addEventListener("click", function () {
         if (Claim.active()) { var d = Claim.load(); location.href = map[d.stage] || "claim-setup.html"; }
