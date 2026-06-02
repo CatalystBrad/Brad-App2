@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Catalyst Arcade</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(160deg, #0a2540 0%, #123a5e 100%);
+    color: #fff;
+  }
+  body { display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .wrap { width: 100%; max-width: 460px; }
+  .brand { text-align: center; margin-bottom: 28px; }
+  .brand h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: .5px; }
+  .brand .tag { color: #9DBBD6; font-size: 14px; }
+  .card {
+    display: block; text-decoration: none; color: inherit;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 18px; padding: 20px; margin-bottom: 16px;
+    transition: transform .08s ease, background .15s ease;
+  }
+  .card:active { transform: scale(.98); background: rgba(255,255,255,.1); }
+  .card .row { display: flex; align-items: center; gap: 16px; }
+  .icon {
+    width: 64px; height: 64px; flex: none; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center; font-size: 34px;
+  }
+  .icon.g1 { background: linear-gradient(135deg,#0A84FF,#5AC8FA); }
+  .icon.g2 { background: linear-gradient(135deg,#34C759,#A2E063); }
+  .card h2 { margin: 0 0 4px; font-size: 20px; }
+  .card .num { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #9DBBD6; text-transform: uppercase; }
+  .card p { margin: 4px 0 0; font-size: 14px; color: #C9D8E8; line-height: 1.4; }
+  .play { margin-left: auto; font-size: 22px; color: #fff; opacity: .7; }
+  .foot { text-align: center; color: #6F8AA6; font-size: 12px; margin-top: 18px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <h1>Catalyst Arcade 🎮</h1>
+      <div class="tag">Site & drainage mini-games</div>
+    </div>
+
+    <a class="card" href="game1-water-leak.html">
+      <div class="row">
+        <div class="icon g1">🚰</div>
+        <div>
+          <div class="num">Game 1</div>
+          <h2>Fix the Water Leak</h2>
+          <p>Rotate the pipes to connect the inlet to the drain before it leaks.</p>
+        </div>
+        <div class="play">▶</div>
+      </div>
+    </a>
+
+    <a class="card" href="game2-rat-chase.html">
+      <div class="row">
+        <div class="icon g2">🐀</div>
+        <div>
+          <div class="num">Game 2</div>
+          <h2>Rat Chase</h2>
+          <p>Jump across the sewer platforms and capture the rats before time's up.</p>
+        </div>
+        <div class="play">▶</div>
+      </div>
+    </a>
+
+    <div class="foot">Catalyst Services UK</div>
+  </div>
+</body>
+</html>

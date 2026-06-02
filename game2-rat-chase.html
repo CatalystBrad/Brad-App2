@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Game 2 · Rat Chase</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #0a1622; color: #fff; overflow: hidden;
+  }
+  body { display: flex; flex-direction: column; align-items: center; }
+  .topbar { width: 100%; max-width: 820px; display: flex; align-items: center; padding: 8px 12px; }
+  .topbar a { color: #5AC8FA; text-decoration: none; font-weight: 600; font-size: 14px; }
+  .topbar .hud { margin-left: auto; display: flex; gap: 16px; font-size: 15px; font-weight: 700; }
+  .topbar .hud .v { color: #A2E063; }
+  .stage { position: relative; width: 100%; max-width: 820px; }
+  canvas { display: block; width: 100%; height: auto; background: #0d1f30; border-radius: 12px; touch-action: none; }
+  .overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 24px;
+    background: rgba(10,22,34,.86); border-radius: 12px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 { font-size: 30px; margin: 0 0 10px; }
+  .overlay p { font-size: 15px; color: #C9D8E8; line-height: 1.5; margin: 0 0 6px; max-width: 460px; }
+  .overlay .big { font-size: 20px; font-weight: 700; color: #A2E063; margin: 12px 0; min-height: 22px; }
+  .btn {
+    margin-top: 16px; background: #34C759; color: #06210f; border: none;
+    padding: 14px 34px; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer;
+  }
+  .btn:active { opacity: .85; }
+  .controls {
+    width: 100%; max-width: 820px; display: flex; justify-content: space-between;
+    padding: 14px 12px 24px; gap: 12px;
+  }
+  .dpad { display: flex; gap: 12px; }
+  .ctl {
+    width: 76px; height: 76px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.12); color: #fff; font-size: 30px; font-weight: bold;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .ctl:active { background: rgba(255,255,255,.28); }
+  .ctl.jump { background: rgba(52,199,89,.35); width: 92px; }
+  .hint { text-align: center; color: #6F8AA6; font-size: 12px; margin-top: -8px; }
+  @media (min-width: 760px) { .controls { display: none; } }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← Arcade</a>
+    <div class="hud">
+      <span>Caught <span class="v" id="caught">0</span>/<span id="goal">5</span></span>
+      <span>Time <span class="v" id="time">0.0s</span></span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <canvas id="game" width="800" height="450"></canvas>
+
+    <div class="overlay" id="startOverlay">
+      <h2>Rat Chase 🐀</h2>
+      <p>Rats have gotten into the drains! Run and jump across the platforms and touch each rat to capture it.</p>
+      <p>Desktop: ← → to move, ↑ / Space to jump. Mobile: use the buttons below.</p>
+      <button class="btn" id="startBtn">Start Chasing</button>
+    </div>
+
+    <div class="overlay hidden" id="winOverlay">
+      <h2>All Clear! ✅</h2>
+      <p id="winStats">You caught them all!</p>
+      <p class="big" id="winBest"></p>
+      <button class="btn" id="againBtn">Play Again</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="dpad">
+      <button class="ctl" id="leftBtn">◀</button>
+      <button class="ctl" id="rightBtn">▶</button>
+    </div>
+    <button class="ctl jump" id="jumpBtn">JUMP</button>
+  </div>
+  <div class="hint">Tip: corner the rats against a wall — they can jump too!</div>
+
+<script>
+(function () {
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var W = canvas.width, H = canvas.height;
+
+  var GRAVITY = 0.7;
+  var MOVE = 3.4;
+  var JUMP = -13.2;
+  var GOAL = 5;
+  var BEST_KEY = "catalyst_rat_best";
+
+  var caughtEl = document.getElementById("caught");
+  var timeEl = document.getElementById("time");
+  var startOverlay = document.getElementById("startOverlay");
+  var winOverlay = document.getElementById("winOverlay");
+  var winStats = document.getElementById("winStats");
+  var winBest = document.getElementById("winBest");
+
+  document.getElementById("goal").textContent = GOAL;
+
+  // World layout (platforms). Ground spans the floor.
+  var platforms = [
+    {x: 0,   y: 410, w: 800, h: 40},   // ground
+    {x: 80,  y: 320, w: 160, h: 18},
+    {x: 320, y: 270, w: 170, h: 18},
+    {x: 560, y: 320, w: 170, h: 18},
+    {x: 200, y: 180, w: 150, h: 18},
+    {x: 470, y: 150, w: 160, h: 18},
+    {x: 0,   y: 230, w: 70,  h: 18},
+    {x: 730, y: 230, w: 70,  h: 18}
+  ];
+
+  var player = {x: 60, y: 360, w: 26, h: 40, vx: 0, vy: 0, onGround: false, facing: 1};
+  var rat = null;
+  var caught = 0;
+  var startTime = 0;
+  var elapsed = 0;
+  var running = false;
+  var flash = 0;
+  var best = parseFloat(localStorage.getItem(BEST_KEY) || "0") || 0;
+
+  var keys = {left: false, right: false, jump: false};
+
+  function aabb(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function groundAt(x, y) {
+    for (var i = 0; i < platforms.length; i++) {
+      var p = platforms[i];
+      if (x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h + 6) return true;
+    }
+    return false;
+  }
+
+  // Axis-separated collision against all platforms.
+  function physics(e) {
+    e.x += e.vx;
+    for (var i = 0; i < platforms.length; i++) {
+      var p = platforms[i];
+      if (aabb(e, p)) {
+        if (e.vx > 0) e.x = p.x - e.w;
+        else if (e.vx < 0) e.x = p.x + p.w;
+        e.vx = 0;
+      }
+    }
+    if (e.x < 0) { e.x = 0; e.vx = 0; }
+    if (e.x + e.w > W) { e.x = W - e.w; e.vx = 0; }
+
+    e.vy += GRAVITY;
+    e.y += e.vy;
+    e.onGround = false;
+    for (var j = 0; j < platforms.length; j++) {
+      var q = platforms[j];
+      if (aabb(e, q)) {
+        if (e.vy > 0) { e.y = q.y - e.h; e.onGround = true; }
+        else if (e.vy < 0) { e.y = q.y + q.h; }
+        e.vy = 0;
+      }
+    }
+  }
+
+  function spawnRat() {
+    // Pick a platform that's not the player's immediate spot.
+    var p, tries = 0;
+    do {
+      p = platforms[Math.floor(Math.random() * platforms.length)];
+      tries++;
+    } while (tries < 10 && Math.abs((p.x + p.w / 2) - player.x) < 120);
+    rat = {
+      x: p.x + p.w / 2 - 14, y: p.y - 24, w: 28, h: 20,
+      vx: Math.random() < 0.5 ? -2.4 : 2.4, vy: 0, onGround: false, dir: 1, jumpCd: 0
+    };
+    rat.dir = rat.vx < 0 ? -1 : 1;
+  }
+
+  function updateRat() {
+    var fleeing = Math.abs(player.x - rat.x) < 210;
+    var speed = fleeing ? 3.4 : 2.3;
+    if (fleeing) {
+      rat.dir = (rat.x < player.x) ? -1 : 1; // run away from player
+    }
+
+    // Don't run off the edge of a platform unless airborne.
+    if (rat.onGround) {
+      var aheadX = rat.x + (rat.dir > 0 ? rat.w + 6 : -6);
+      var footY = rat.y + rat.h + 4;
+      if (!groundAt(aheadX, footY)) {
+        if (fleeing && rat.jumpCd <= 0) {
+          rat.vy = JUMP * 0.78;       // leap rather than be cornered
+          rat.jumpCd = 40;
+        } else {
+          rat.dir *= -1;              // turn back from the ledge
+        }
+      }
+    }
+    if (rat.jumpCd > 0) rat.jumpCd--;
+
+    // Occasional panic hop when the player is right on top of it.
+    if (fleeing && rat.onGround && Math.abs(player.x - rat.x) < 60 && rat.jumpCd <= 0 && Math.random() < 0.04) {
+      rat.vy = JUMP * 0.8;
+      rat.jumpCd = 40;
+    }
+
+    rat.vx = rat.dir * speed;
+    physics(rat);
+    if (rat.vx === 0 && rat.onGround) rat.dir *= -1; // bumped a wall
+  }
+
+  function update() {
+    player.vx = 0;
+    if (keys.left) { player.vx = -MOVE; player.facing = -1; }
+    if (keys.right) { player.vx = MOVE; player.facing = 1; }
+    if (keys.jump && player.onGround) { player.vy = JUMP; }
+    physics(player);
+
+    updateRat();
+
+    if (rat && aabb(player, rat)) {
+      caught++;
+      caughtEl.textContent = caught;
+      flash = 12;
+      if (caught >= GOAL) { win(); return; }
+      spawnRat();
+    }
+
+    elapsed = (performance.now() - startTime) / 1000;
+    timeEl.textContent = elapsed.toFixed(1) + "s";
+    if (flash > 0) flash--;
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawWorker(e) {
+    var x = e.x, y = e.y;
+    // legs
+    ctx.fillStyle = "#1f2d3d";
+    ctx.fillRect(x + 3, y + 28, 8, 12);
+    ctx.fillRect(x + e.w - 11, y + 28, 8, 12);
+    // hi-vis body
+    ctx.fillStyle = "#f4d03f";
+    roundRect(x + 1, y + 12, e.w - 2, 18, 4); ctx.fill();
+    ctx.fillStyle = "#e67e22";
+    ctx.fillRect(x + 1, y + 19, e.w - 2, 3);
+    // head
+    ctx.fillStyle = "#f1c27d";
+    ctx.beginPath(); ctx.arc(x + e.w / 2, y + 7, 7, 0, Math.PI * 2); ctx.fill();
+    // helmet
+    ctx.fillStyle = "#ff8c00";
+    ctx.beginPath(); ctx.arc(x + e.w / 2, y + 5, 8, Math.PI, 0); ctx.fill();
+    ctx.fillRect(x + e.w / 2 - 9, y + 4, 18, 2);
+    // facing eye
+    ctx.fillStyle = "#16202c";
+    ctx.fillRect(x + e.w / 2 + (e.facing > 0 ? 2 : -4), y + 6, 2, 2);
+  }
+
+  function drawRat(r) {
+    var x = r.x, y = r.y, d = r.dir;
+    ctx.fillStyle = "#8a8f98";
+    // body
+    ctx.beginPath();
+    ctx.ellipse(x + r.w / 2, y + r.h / 2 + 2, r.w / 2, r.h / 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // head
+    var hx = x + (d > 0 ? r.w - 4 : 4);
+    ctx.beginPath(); ctx.arc(hx, y + r.h / 2, 8, 0, Math.PI * 2); ctx.fill();
+    // ear
+    ctx.beginPath(); ctx.arc(hx - d * 3, y + r.h / 2 - 7, 4, 0, Math.PI * 2); ctx.fill();
+    // nose
+    ctx.fillStyle = "#f1a7c1";
+    ctx.beginPath(); ctx.arc(hx + d * 7, y + r.h / 2 + 1, 2.5, 0, Math.PI * 2); ctx.fill();
+    // eye
+    ctx.fillStyle = "#1b1b1b";
+    ctx.beginPath(); ctx.arc(hx + d * 2, y + r.h / 2 - 2, 1.6, 0, Math.PI * 2); ctx.fill();
+    // tail
+    ctx.strokeStyle = "#f1a7c1"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + (d > 0 ? 0 : r.w), y + r.h / 2 + 2);
+    ctx.quadraticCurveTo(x - d * 14, y + r.h / 2 - 6, x - d * 18, y + r.h / 2 + 6);
+    ctx.stroke();
+  }
+
+  function render() {
+    // background
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#143049");
+    g.addColorStop(1, "#0a1622");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // faint pipe arcs in the back
+    ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 18;
+    for (var a = 0; a < 3; a++) {
+      ctx.beginPath();
+      ctx.arc(140 + a * 280, 460, 120, Math.PI, 0);
+      ctx.stroke();
+    }
+
+    // platforms (brick / pipe ledges)
+    for (var i = 0; i < platforms.length; i++) {
+      var p = platforms[i];
+      ctx.fillStyle = (i === 0) ? "#3a2c22" : "#4a5568";
+      roundRect(p.x, p.y, p.w, p.h, 5); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.12)";
+      ctx.fillRect(p.x, p.y, p.w, 3);
+    }
+
+    if (rat) drawRat(rat);
+    drawWorker(player);
+
+    if (flash > 0) {
+      ctx.fillStyle = "rgba(162,224,99," + (flash / 24) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function loop() {
+    if (running) update();
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function startGame() {
+    caught = 0;
+    caughtEl.textContent = "0";
+    player.x = 60; player.y = 360; player.vx = 0; player.vy = 0;
+    spawnRat();
+    startTime = performance.now();
+    running = true;
+    startOverlay.classList.add("hidden");
+    winOverlay.classList.add("hidden");
+  }
+
+  function win() {
+    running = false;
+    var t = elapsed;
+    winStats.textContent = "You caught all " + GOAL + " rats in " + t.toFixed(1) + "s";
+    var isBest = best === 0 || t < best;
+    if (isBest) {
+      best = t;
+      localStorage.setItem(BEST_KEY, String(best));
+      winBest.textContent = "🏆 New best time!";
+    } else {
+      winBest.textContent = "Best: " + best.toFixed(1) + "s";
+    }
+    winOverlay.classList.remove("hidden");
+  }
+
+  // --- input ---
+  function setKey(code, down) {
+    if (code === "ArrowLeft" || code === "KeyA") keys.left = down;
+    else if (code === "ArrowRight" || code === "KeyD") keys.right = down;
+    else if (code === "ArrowUp" || code === "KeyW" || code === "Space") keys.jump = down;
+  }
+  window.addEventListener("keydown", function (e) {
+    if (["ArrowLeft","ArrowRight","ArrowUp","Space"].indexOf(e.code) !== -1) e.preventDefault();
+    setKey(e.code, true);
+  });
+  window.addEventListener("keyup", function (e) { setKey(e.code, false); });
+
+  function bindHold(id, key) {
+    var el = document.getElementById(id);
+    var on = function (e) { e.preventDefault(); keys[key] = true; };
+    var off = function (e) { e.preventDefault(); keys[key] = false; };
+    el.addEventListener("touchstart", on, {passive: false});
+    el.addEventListener("touchend", off);
+    el.addEventListener("touchcancel", off);
+    el.addEventListener("mousedown", on);
+    el.addEventListener("mouseup", off);
+    el.addEventListener("mouseleave", off);
+  }
+  bindHold("leftBtn", "left");
+  bindHold("rightBtn", "right");
+  bindHold("jumpBtn", "jump");
+
+  document.getElementById("startBtn").addEventListener("click", startGame);
+  document.getElementById("againBtn").addEventListener("click", startGame);
+
+  loop();
+})();
+</script>
+</body>
+</html>
