@@ -2,47 +2,82 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Catalyst Arcade</title>
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body {
-    margin: 0; padding: 0; min-height: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: linear-gradient(160deg, #0a2540 0%, #123a5e 100%);
-    color: #fff;
+  :root {
+    --bg0:#070b16; --bg1:#0d1426; --glass:rgba(255,255,255,.055);
+    --line:rgba(255,255,255,.12); --txt:#eaf1fb; --muted:#93a4bd;
+    --cyan:#22d3ee; --blue:#3b82f6; --violet:#8b5cf6; --lime:#a3e635; --green:#34d399;
   }
-  body { display: flex; align-items: center; justify-content: center; padding: 24px; }
-  .wrap { width: 100%; max-width: 460px; }
-  .brand { text-align: center; margin-bottom: 28px; }
-  .brand h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: .5px; }
-  .brand .tag { color: #9DBBD6; font-size: 14px; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; min-height:100%; }
+  body {
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--txt); background:var(--bg0); overflow-x:hidden;
+    display:flex; align-items:center; justify-content:center; padding:28px 20px;
+    min-height:100vh;
+  }
+  /* animated aurora background */
+  body::before, body::after {
+    content:""; position:fixed; width:60vmax; height:60vmax; border-radius:50%;
+    filter:blur(80px); opacity:.55; z-index:-1; animation:float 18s ease-in-out infinite;
+  }
+  body::before { background:radial-gradient(circle,var(--blue),transparent 60%); top:-15vmax; left:-10vmax; }
+  body::after  { background:radial-gradient(circle,var(--violet),transparent 60%); bottom:-18vmax; right:-12vmax; animation-delay:-9s; }
+  @keyframes float { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(4vmax,3vmax) scale(1.15);} }
+
+  .wrap { width:100%; max-width:480px; position:relative; }
+  .brand { text-align:center; margin-bottom:30px; }
+  .brand .logo {
+    display:inline-flex; align-items:center; justify-content:center; width:74px; height:74px;
+    border-radius:22px; font-size:40px; margin-bottom:14px;
+    background:linear-gradient(135deg,var(--cyan),var(--violet));
+    box-shadow:0 12px 36px rgba(34,211,238,.35);
+  }
+  .brand h1 { font-size:32px; margin:0 0 6px; font-weight:800; letter-spacing:-.02em; }
+  .brand .tag { color:var(--muted); font-size:14px; }
+
   .card {
-    display: block; text-decoration: none; color: inherit;
-    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
-    border-radius: 18px; padding: 20px; margin-bottom: 16px;
-    transition: transform .08s ease, background .15s ease;
+    display:block; text-decoration:none; color:inherit; position:relative; overflow:hidden;
+    background:var(--glass); border:1px solid var(--line); border-radius:22px;
+    padding:20px; margin-bottom:16px; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+    transition:transform .12s ease, border-color .2s ease, box-shadow .2s ease;
   }
-  .card:active { transform: scale(.98); background: rgba(255,255,255,.1); }
-  .card .row { display: flex; align-items: center; gap: 16px; }
+  .card::after {
+    content:""; position:absolute; inset:0; border-radius:22px; padding:1px; pointer-events:none;
+    background:linear-gradient(120deg,transparent,rgba(255,255,255,.25),transparent);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; opacity:0; transition:opacity .25s;
+  }
+  .card:hover { transform:translateY(-3px); border-color:rgba(255,255,255,.22); box-shadow:0 18px 44px rgba(0,0,0,.45); }
+  .card:hover::after { opacity:1; }
+  .card:active { transform:scale(.985); }
+  .row { display:flex; align-items:center; gap:16px; }
   .icon {
-    width: 64px; height: 64px; flex: none; border-radius: 16px;
-    display: flex; align-items: center; justify-content: center; font-size: 34px;
+    width:66px; height:66px; flex:none; border-radius:18px;
+    display:flex; align-items:center; justify-content:center; font-size:34px;
   }
-  .icon.g1 { background: linear-gradient(135deg,#0A84FF,#5AC8FA); }
-  .icon.g2 { background: linear-gradient(135deg,#34C759,#A2E063); }
-  .card h2 { margin: 0 0 4px; font-size: 20px; }
-  .card .num { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #9DBBD6; text-transform: uppercase; }
-  .card p { margin: 4px 0 0; font-size: 14px; color: #C9D8E8; line-height: 1.4; }
-  .play { margin-left: auto; font-size: 22px; color: #fff; opacity: .7; }
-  .foot { text-align: center; color: #6F8AA6; font-size: 12px; margin-top: 18px; }
+  .icon.g1 { background:linear-gradient(135deg,var(--cyan),var(--blue)); box-shadow:0 8px 22px rgba(34,211,238,.4); }
+  .icon.g2 { background:linear-gradient(135deg,var(--green),var(--lime)); box-shadow:0 8px 22px rgba(52,211,153,.4); }
+  .num { font-size:11px; font-weight:800; letter-spacing:1.4px; color:var(--muted); text-transform:uppercase; }
+  .card h2 { margin:3px 0 4px; font-size:21px; font-weight:800; letter-spacing:-.01em; }
+  .card p { margin:0; font-size:13.5px; color:var(--muted); line-height:1.45; }
+  .play {
+    margin-left:auto; width:40px; height:40px; flex:none; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:16px;
+    background:rgba(255,255,255,.1); border:1px solid var(--line);
+  }
+  .foot { text-align:center; color:#5d7390; font-size:12px; margin-top:22px; letter-spacing:.3px; }
 </style>
 </head>
 <body>
   <div class="wrap">
     <div class="brand">
-      <h1>Catalyst Arcade 🎮</h1>
-      <div class="tag">Site & drainage mini-games</div>
+      <div class="logo">🎮</div>
+      <h1>Catalyst Arcade</h1>
+      <div class="tag">Site &amp; drainage mini-games</div>
     </div>
 
     <a class="card" href="game1-water-leak.html">
@@ -51,7 +86,7 @@
         <div>
           <div class="num">Game 1</div>
           <h2>Fix the Water Leak</h2>
-          <p>Rotate the pipes to connect the inlet to the drain before it leaks.</p>
+          <p>Rotate the pipes to route the flow from the inlet to the drain.</p>
         </div>
         <div class="play">▶</div>
       </div>
@@ -63,13 +98,13 @@
         <div>
           <div class="num">Game 2</div>
           <h2>Rat Chase</h2>
-          <p>Jump across the sewer platforms and capture the rats before time's up.</p>
+          <p>Run and jump across the sewer platforms to capture every rat.</p>
         </div>
         <div class="play">▶</div>
       </div>
     </a>
 
-    <div class="foot">Catalyst Services UK</div>
+    <div class="foot">Catalyst Services UK · 2026</div>
   </div>
 </body>
 </html>
