@@ -1,13 +1,13 @@
 {
   "name": "Catalyst Arcade",
   "short_name": "Catalyst",
-  "description": "Site & drainage mini-games by Catalyst Services UK",
+  "description": "Mini-games by Catalyst Services UK — expert drainage, clean water supply & building services",
   "start_url": "index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#070b16",
-  "theme_color": "#070b16",
+  "background_color": "#081326",
+  "theme_color": "#081326",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]

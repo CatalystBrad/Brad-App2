@@ -15,7 +15,7 @@
   :root {
     --bg0:#070b16; --bg1:#0d1426; --glass:rgba(255,255,255,.055);
     --line:rgba(255,255,255,.12); --txt:#eaf1fb; --muted:#93a4bd;
-    --cyan:#22d3ee; --blue:#3b82f6; --violet:#8b5cf6; --lime:#a3e635; --green:#34d399;
+    --cyan:#36C5F0; --blue:#1E73FF; --violet:#0A4FD0; --lime:#a3e635; --green:#34d399;
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { margin:0; min-height:100%; }
@@ -39,11 +39,13 @@
   .brand .logo {
     display:inline-flex; align-items:center; justify-content:center; width:74px; height:74px;
     border-radius:22px; font-size:40px; margin-bottom:14px;
-    background:linear-gradient(135deg,var(--cyan),var(--violet));
-    box-shadow:0 12px 36px rgba(34,211,238,.35);
+    background:linear-gradient(135deg,var(--blue),var(--cyan)); padding:15px;
+    box-shadow:0 12px 36px rgba(30,115,255,.4);
   }
-  .brand h1 { font-size:32px; margin:0 0 6px; font-weight:800; letter-spacing:-.02em; }
-  .brand .tag { color:var(--muted); font-size:14px; }
+  .brand h1 { font-size:32px; margin:0 0 4px; font-weight:900; letter-spacing:-.02em; }
+  .brand h1 .uk { color:var(--cyan); }
+  .brand .tag { color:var(--muted); font-size:13.5px; }
+  .brand .tagline { color:#6f86a6; font-size:12px; margin-top:3px; letter-spacing:.2px; }
 
   .card {
     display:block; text-decoration:none; color:inherit; position:relative; overflow:hidden;
@@ -68,7 +70,7 @@
   }
   .icon.g1 { background:linear-gradient(135deg,var(--cyan),var(--blue)); box-shadow:0 8px 22px rgba(34,211,238,.4); }
   .icon.g2 { background:linear-gradient(135deg,var(--green),var(--lime)); box-shadow:0 8px 22px rgba(52,211,153,.4); }
-  .icon.g3 { background:linear-gradient(135deg,#ff7a00,#ffb340); box-shadow:0 8px 22px rgba(255,122,0,.4); }
+  .icon.g3 { background:linear-gradient(135deg,#0A4FD0,#1E73FF); box-shadow:0 8px 22px rgba(10,79,208,.45); }
   .num { font-size:11px; font-weight:800; letter-spacing:1.4px; color:var(--muted); text-transform:uppercase; }
   .card h2 { margin:3px 0 4px; font-size:21px; font-weight:800; letter-spacing:-.01em; }
   .card p { margin:0; font-size:13.5px; color:var(--muted); line-height:1.45; }
@@ -91,9 +93,10 @@
   <button class="mute" id="muteBtn" title="Sound"></button>
   <div class="wrap">
     <div class="brand">
-      <div class="logo">🎮</div>
-      <h1>Catalyst Arcade</h1>
-      <div class="tag">Site &amp; drainage mini-games</div>
+      <div class="logo" id="logo"></div>
+      <h1>Catalyst <span class="uk">Arcade</span></h1>
+      <div class="tag">Mini-games by Catalyst Services UK</div>
+      <div class="tagline">Expert drainage · clean water supply · building services</div>
     </div>
 
     <a class="card" href="game1-water-leak.html">
@@ -136,6 +139,7 @@
   </div>
   <script>
     if (window.Arcade) {
+      document.getElementById("logo").innerHTML = Arcade.MARK;
       Arcade.bindMute("muteBtn");
       document.querySelectorAll(".card").forEach(function (c) {
         c.addEventListener("click", function () { Arcade.sfx.select(); });

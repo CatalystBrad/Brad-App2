@@ -139,10 +139,36 @@
     });
   }
 
+  // ---- Catalyst brand ----
+  var BRAND = { blue: "#1E73FF", deep: "#0A4FD0", cyan: "#36C5F0", navy: "#081326" };
+  // Droplet + spark mark (water services + "catalyst"). White on a blue tile.
+  var MARK = '<svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">' +
+    '<path d="M50 16 C68 42 80 58 50 86 C20 58 32 42 50 16 Z" fill="#fff"/>' +
+    '<path d="M50 41 l4.6 9.7 9.7 4.6 -9.7 4.6 -4.6 9.7 -4.6 -9.7 -9.7 -4.6 9.7 -4.6 z" fill="#0A4FD0"/></svg>';
+
+  // Builds a brand lockup (logo tile + wordmark) into a container element.
+  function mountBrand(el, opts) {
+    if (typeof el === "string") el = document.getElementById(el);
+    if (!el) return;
+    opts = opts || {};
+    var size = opts.size || 32, fs = opts.fontSize || 16;
+    var sub = opts.sub == null ? "SERVICES UK" : opts.sub;
+    el.innerHTML =
+      '<span style="display:inline-flex;align-items:center;gap:9px">' +
+        '<span style="width:' + size + 'px;height:' + size + 'px;border-radius:' + Math.round(size*0.28) + 'px;' +
+          'background:linear-gradient(135deg,' + BRAND.blue + ',' + BRAND.cyan + ');padding:' + Math.round(size*0.16) + 'px;' +
+          'box-shadow:0 6px 16px rgba(30,115,255,.4)">' + MARK + '</span>' +
+        '<span style="font-weight:900;letter-spacing:.4px;font-size:' + fs + 'px;line-height:1.02;color:#eaf1fb">Catalyst' +
+          (sub ? '<span style="display:block;font-weight:600;font-size:' + Math.max(8, fs*0.55) + 'px;letter-spacing:2.6px;color:#93a4bd;margin-top:1px">' + sub + '</span>' : '') +
+        '</span>' +
+      '</span>';
+  }
+
   window.Arcade = {
     sfx: SFX, haptic: haptic, resume: resume,
     startMusic: startMusic, stopMusic: stopMusic,
     bindMute: bindMute, setMuted: setMuted,
-    isMuted: function () { return muted; }
+    isMuted: function () { return muted; },
+    BRAND: BRAND, MARK: MARK, mountBrand: mountBrand
   };
 })();

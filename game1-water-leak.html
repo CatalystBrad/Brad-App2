@@ -14,7 +14,7 @@
 <style>
   :root {
     --bg0:#070b16; --glass:rgba(255,255,255,.06); --line:rgba(255,255,255,.12);
-    --txt:#eaf1fb; --muted:#93a4bd; --cyan:#22d3ee; --blue:#3b82f6;
+    --txt:#eaf1fb; --muted:#93a4bd; --cyan:#36C5F0; --blue:#1E73FF;
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
   html,body { margin:0; min-height:100%; }
@@ -113,7 +113,8 @@
 <body>
   <div class="app">
     <div class="toprow">
-      <a class="back" href="index.html">← Arcade</a>
+      <a class="back" href="index.html">←</a>
+      <span id="brand" style="margin-left:10px"></span>
       <div class="spacer"></div>
       <button class="icobtn" id="hintBtn" title="Hint">💡</button>
       <button class="icobtn" id="undoBtn" title="Undo">↩️</button>
@@ -365,7 +366,7 @@
   document.getElementById("winNext").addEventListener("click", nextLevel);
   undoBtn.addEventListener("click", undo);
   document.getElementById("hintBtn").addEventListener("click", hint);
-  if(window.Arcade) Arcade.bindMute("muteBtn");
+  if(window.Arcade){ Arcade.bindMute("muteBtn"); Arcade.mountBrand("brand",{size:28,fontSize:14}); }
 
   buildLevel();
 })();

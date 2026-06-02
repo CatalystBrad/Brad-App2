@@ -94,7 +94,8 @@
 </head>
 <body>
   <div class="topbar">
-    <a href="index.html">← Arcade</a>
+    <a href="index.html">←</a>
+    <span id="brand" style="margin-left:8px"></span>
     <div class="hud">
       <div class="chip"><span class="lbl">Lv</span><span class="v" id="level">1</span></div>
       <div class="chip"><span class="lbl">Caught</span><span class="v" id="caught">0</span>/<span id="goal">5</span></div>
@@ -423,7 +424,7 @@
 
   document.getElementById("startBtn").addEventListener("click", startRun);
   againBtn.addEventListener("click", nextLevel);
-  if(window.Arcade) Arcade.bindMute("muteBtn");
+  if(window.Arcade){ Arcade.bindMute("muteBtn"); Arcade.mountBrand("brand",{size:26,fontSize:13}); }
 
   loop();
 })();
