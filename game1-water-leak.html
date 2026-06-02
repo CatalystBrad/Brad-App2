@@ -11,6 +11,7 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon.svg" />
 <script src="arcade.js"></script>
+<script src="claim.js"></script>
 <style>
   :root {
     --bg0:#070b16; --glass:rgba(255,255,255,.06); --line:rgba(255,255,255,.12);
@@ -120,6 +121,7 @@
       <button class="icobtn" id="undoBtn" title="Undo">↩️</button>
       <button class="icobtn" id="muteBtn" title="Sound"></button>
     </div>
+    <div id="banner" style="margin-bottom:14px"></div>
     <div class="header">
       <h1>Fix the Water Leak 🚰</h1>
       <div class="sub">Rotate the pipes — connect the inlet to the drain</div>
@@ -172,6 +174,10 @@
   var startIdx = 0, endIdx = 0, level = 1, moves = 0, par = 0, seconds = 0, solved = false, ticker = null;
   var musicStarted = false;
   var best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0;
+
+  var CAMPAIGN = new URLSearchParams(location.search).has("claim") && window.Claim &&
+    (function(){ var c=Claim.load(); return !!(c && c.stage==="repair"); })();
+  if(CAMPAIGN){ var cd=Claim.load(); level = cd.severity===1?1 : cd.severity===2?4:7; }
 
   function gridForLevel(l) { return l < 4 ? 5 : l < 7 ? 6 : 7; }
   function shuffle(a){ for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;} return a; }
@@ -354,12 +360,18 @@
     var isBest = best===0 || moves<best;
     if(isBest){ best=moves; localStorage.setItem(BEST_KEY,String(best)); winBest.textContent="🏆 Fewest moves yet!"; }
     else winBest.textContent="Best: "+best+" moves  ·  ⭐ "+total+" total";
+    if(CAMPAIGN){
+      nextBtn.style.display="none";
+      var b=document.getElementById("winNext");
+      b.textContent="Settle the claim →";
+      b.onclick=function(){ Claim.completeRepair({stars:rating, moves:moves, par:par, seconds:seconds}); };
+    }
     winOverlay.classList.remove("hidden");
     if(window.Arcade) Arcade.sfx.win();
     confettiBurst();
   }
 
-  function nextLevel(){ level++; if(window.Arcade) Arcade.sfx.levelup(); buildLevel(); }
+  function nextLevel(){ if(CAMPAIGN) return; level++; if(window.Arcade) Arcade.sfx.levelup(); buildLevel(); }
 
   document.getElementById("newBtn").addEventListener("click", function(){ startMusicOnce(); buildLevel(); });
   nextBtn.addEventListener("click", nextLevel);
@@ -367,6 +379,7 @@
   undoBtn.addEventListener("click", undo);
   document.getElementById("hintBtn").addEventListener("click", hint);
   if(window.Arcade){ Arcade.bindMute("muteBtn"); Arcade.mountBrand("brand",{size:28,fontSize:14}); }
+  if(CAMPAIGN){ document.getElementById("newBtn").style.display="none"; if(window.Claim) Claim.mountBanner("banner","repair"); }
 
   buildLevel();
 })();

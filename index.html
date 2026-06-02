@@ -11,6 +11,7 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon.svg" />
 <script src="arcade.js"></script>
+<script src="claim.js"></script>
 <style>
   :root {
     --bg0:#070b16; --bg1:#0d1426; --glass:rgba(255,255,255,.055);
@@ -71,6 +72,10 @@
   .icon.g1 { background:linear-gradient(135deg,var(--cyan),var(--blue)); box-shadow:0 8px 22px rgba(34,211,238,.4); }
   .icon.g2 { background:linear-gradient(135deg,var(--green),var(--lime)); box-shadow:0 8px 22px rgba(52,211,153,.4); }
   .icon.g3 { background:linear-gradient(135deg,#0A4FD0,#1E73FF); box-shadow:0 8px 22px rgba(10,79,208,.45); }
+  .icon.feat { background:linear-gradient(135deg,#1E73FF,#36C5F0); box-shadow:0 8px 22px rgba(30,115,255,.5); }
+  .card.feature { background:linear-gradient(135deg,rgba(30,115,255,.20),rgba(54,197,240,.08)); border-color:rgba(54,197,240,.45); color:inherit; font:inherit; }
+  .card.feature h2 { font-size:22px; }
+  .freeplay { font-size:11px; letter-spacing:2.4px; text-transform:uppercase; color:#6f86a6; font-weight:800; margin:20px 4px 12px; }
   .num { font-size:11px; font-weight:800; letter-spacing:1.4px; color:var(--muted); text-transform:uppercase; }
   .card h2 { margin:3px 0 4px; font-size:21px; font-weight:800; letter-spacing:-.01em; }
   .card p { margin:0; font-size:13.5px; color:var(--muted); line-height:1.45; }
@@ -98,6 +103,20 @@
       <div class="tag">Mini-games by Catalyst Services UK</div>
       <div class="tagline">Expert drainage · clean water supply · building services</div>
     </div>
+
+    <button class="card feature" id="journeyCard" style="width:100%;text-align:left;cursor:pointer">
+      <div class="row">
+        <div class="icon feat">🧭</div>
+        <div>
+          <div class="num" id="journeyNum">Claim Journey · Campaign</div>
+          <h2 id="journeyTitle">Start a Claim</h2>
+          <p id="journeyDesc">Take one claim from first call to settled — setup, dispatch &amp; repair.</p>
+        </div>
+        <div class="play">▶</div>
+      </div>
+    </button>
+
+    <div class="freeplay">Free play</div>
 
     <a class="card" href="game1-water-leak.html">
       <div class="row">
@@ -145,6 +164,21 @@
         c.addEventListener("click", function () { Arcade.sfx.select(); });
       });
     }
+    (function () {
+      var jc = document.getElementById("journeyCard");
+      if (!jc || !window.Claim) return;
+      var map = { setup:"claim-setup.html", dispatch:"game3-dispatch.html?claim=1", repair:"game1-water-leak.html?claim=1", result:"claim-result.html" };
+      if (Claim.active()) {
+        var d = Claim.load();
+        var labels = { setup:"Customer setup", dispatch:"Engineer dispatch", repair:"Repairing the leak" };
+        document.getElementById("journeyTitle").textContent = "Resume your claim";
+        document.getElementById("journeyDesc").textContent = "Claim #" + d.id + " · " + d.perilName + " · " + (labels[d.stage] || d.stage);
+      }
+      jc.addEventListener("click", function () {
+        if (Claim.active()) { var d = Claim.load(); location.href = map[d.stage] || "claim-setup.html"; }
+        else Claim.start();
+      });
+    })();
   </script>
 </body>
 </html>

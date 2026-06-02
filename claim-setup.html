@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Customer Setup · Catalyst Claim</title>
+<meta name="theme-color" content="#081326" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Catalyst" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<script src="arcade.js"></script>
+<script src="claim.js"></script>
+<style>
+  :root{ --bg0:#081326; --glass:rgba(255,255,255,.06); --line:rgba(255,255,255,.12);
+    --txt:#eaf1fb; --muted:#9fb0c8; --blue:#1E73FF; --cyan:#36C5F0; --green:#34d399; --red:#ef4444; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
+  html,body{ margin:0; min-height:100%; }
+  body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--txt); background:var(--bg0); overflow-x:hidden; min-height:100vh;
+    display:flex; justify-content:center; padding:14px; padding-top:max(14px,env(safe-area-inset-top)); }
+  body::before{ content:""; position:fixed; inset:0; z-index:-1;
+    background:radial-gradient(80vmax 60vmax at 50% -10%,rgba(30,115,255,.16),transparent 60%),
+               radial-gradient(70vmax 50vmax at 50% 120%,rgba(54,197,240,.12),transparent 60%); }
+  .app{ width:100%; max-width:480px; }
+  .top{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .top a{ color:var(--cyan); text-decoration:none; font-weight:700; font-size:14px; }
+  .icobtn{ margin-left:auto; width:36px; height:36px; border-radius:11px; border:1px solid var(--line);
+    background:var(--glass); color:var(--txt); font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #banner{ margin-bottom:12px; }
+
+  .call{ background:var(--glass); border:1px solid var(--line); border-radius:18px; padding:16px;
+    backdrop-filter:blur(14px); box-shadow:0 12px 30px rgba(0,0,0,.35); }
+  .caller{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .avatar{ width:54px; height:54px; border-radius:50%; background:linear-gradient(135deg,#243b5e,#16263f);
+    display:flex; align-items:center; justify-content:center; font-size:30px; flex:none; transition:transform .2s; }
+  .caller .who b{ font-size:16px; } .caller .who div{ font-size:12px; color:var(--muted); }
+  .csat{ margin-left:auto; text-align:right; }
+  .csat .face{ font-size:26px; transition:transform .2s; }
+  .csatbar{ width:64px; height:7px; border-radius:5px; background:rgba(255,255,255,.12); overflow:hidden; margin-top:3px; }
+  .csatbar i{ display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,var(--red),#f59e0b,var(--green)); transition:width .35s; }
+
+  .bubble{ background:rgba(255,255,255,.08); border:1px solid var(--line); border-radius:14px 14px 14px 4px;
+    padding:13px 15px; font-size:15px; line-height:1.5; min-height:54px; margin-bottom:14px; }
+  .bubble .speaker{ font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--cyan); font-weight:800; display:block; margin-bottom:4px; }
+
+  .q{ font-size:13px; color:var(--muted); font-weight:700; margin:0 0 9px; }
+  .opts{ display:grid; gap:9px; }
+  .opt{ text-align:left; background:var(--glass); border:1px solid var(--line); border-radius:13px; padding:13px 14px;
+    color:var(--txt); font-size:14.5px; font-weight:600; cursor:pointer; transition:transform .08s, border-color .15s, background .15s; }
+  .opt:active{ transform:scale(.98); }
+  .opt.good{ border-color:var(--green); background:rgba(52,211,153,.16); }
+  .opt.bad{ border-color:var(--red); background:rgba(239,68,68,.15); }
+  .opt.dim{ opacity:.45; }
+  .grid2{ grid-template-columns:1fr 1fr; }
+  .opt .ic{ font-size:18px; margin-right:7px; }
+
+  /* house */
+  svg.house{ width:100%; height:auto; display:block; margin:2px 0 4px; }
+  .hot{ cursor:pointer; }
+  .hot circle{ transition:r .15s, fill .15s; }
+
+  /* claim form */
+  .form{ margin-top:14px; background:var(--glass); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+  .form .ft{ font-size:11px; letter-spacing:1.4px; text-transform:uppercase; color:var(--muted); font-weight:800; padding:11px 14px 6px; }
+  .frow{ display:flex; align-items:center; gap:10px; padding:9px 14px; border-top:1px solid rgba(255,255,255,.06); font-size:14px; }
+  .frow .k{ color:var(--muted); width:84px; flex:none; font-size:12.5px; }
+  .frow .v{ font-weight:700; }
+  .frow .v.pending{ color:#56688a; font-weight:500; }
+  .frow .chk{ margin-left:auto; opacity:0; transform:scale(.5); transition:.25s; color:var(--green); font-weight:800; }
+  .frow.filled .chk{ opacity:1; transform:scale(1); }
+
+  .progress{ display:flex; gap:6px; justify-content:center; margin:14px 0 4px; }
+  .pdot{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.18); transition:.25s; }
+  .pdot.on{ background:var(--cyan); transform:scale(1.25); }
+  .pdot.done{ background:var(--green); }
+
+  .done{ text-align:center; padding:8px 4px; }
+  .done .stars{ font-size:40px; letter-spacing:6px; margin:6px 0; }
+  .done .stars .on{ filter:drop-shadow(0 0 10px rgba(255,210,60,.85)); } .done .stars .off{ opacity:.25; }
+  .btn{ width:100%; margin-top:14px; border:none; padding:15px; border-radius:15px; font-size:16px; font-weight:800; cursor:pointer;
+    color:#04121f; background:linear-gradient(135deg,var(--blue),var(--cyan)); box-shadow:0 10px 24px rgba(30,115,255,.4); }
+  .btn:active{ transform:scale(.97); }
+  .fade{ animation:fade .3s ease; } @keyframes fade{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="top">
+      <a href="index.html">←</a>
+      <span id="brand"></span>
+      <button class="icobtn" id="muteBtn"></button>
+    </div>
+    <div id="banner"></div>
+
+    <div class="call">
+      <div class="caller">
+        <div class="avatar" id="avatar">📞</div>
+        <div class="who"><b id="cname">Incoming call…</b><div id="carea"></div></div>
+        <div class="csat"><div class="face" id="face">🙂</div><div class="csatbar"><i id="csatfill"></i></div></div>
+      </div>
+      <div class="bubble"><span class="speaker" id="speaker">Customer</span><span id="speech"></span></div>
+      <div id="phase"></div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <div class="form">
+      <div class="ft">Claim Record</div>
+      <div class="frow" id="f-cust"><span class="k">Customer</span><span class="v pending">—</span><span class="chk">✓</span></div>
+      <div class="frow" id="f-peril"><span class="k">Peril</span><span class="v pending">—</span><span class="chk">✓</span></div>
+      <div class="frow" id="f-loc"><span class="k">Source</span><span class="v pending">—</span><span class="chk">✓</span></div>
+      <div class="frow" id="f-pri"><span class="k">Priority</span><span class="v pending">—</span><span class="chk">✓</span></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  if(window.Arcade){ Arcade.bindMute("muteBtn"); document.getElementById("brand").innerHTML=""; Arcade.mountBrand("brand",{size:26,fontSize:13,sub:"CLAIM SETUP"}); }
+
+  var d = Claim.load();
+  if(!d){ Claim.start(); return; }            // create a claim then reload here
+  Claim.mountBanner("banner","setup");
+
+  var phaseEl=document.getElementById("phase");
+  var speechEl=document.getElementById("speech");
+  var speakerEl=document.getElementById("speaker");
+  var faceEl=document.getElementById("face");
+  var fillEl=document.getElementById("csatfill");
+  var avatarEl=document.getElementById("avatar");
+
+  var csat=72, accuracy=0, csatDelta=0;
+  var PHASES=["greet","peril","locate","priority"];
+  var pi=0;
+
+  document.getElementById("cname").textContent=d.customer;
+  document.getElementById("carea").textContent=d.area+" · Policyholder";
+  setField("f-cust", d.customer);
+  updateCsat(0);
+  buildProgress();
+
+  function buildProgress(){
+    var p=document.getElementById("progress"); p.innerHTML="";
+    for(var i=0;i<PHASES.length;i++){ var s=document.createElement("span"); s.className="pdot"; p.appendChild(s); }
+    refreshProgress();
+  }
+  function refreshProgress(){
+    var dots=document.querySelectorAll(".pdot");
+    for(var i=0;i<dots.length;i++){ dots[i].className="pdot"+(i<pi?" done":(i===pi?" on":"")); }
+  }
+  function setField(id,val){ var r=document.getElementById(id); r.querySelector(".v").textContent=val; r.querySelector(".v").classList.remove("pending"); r.classList.add("filled"); }
+  function updateCsat(delta){ csat=Math.max(0,Math.min(100,csat+delta)); csatDelta+=delta;
+    fillEl.style.width=csat+"%";
+    var f = csat>=80?"😀":csat>=62?"🙂":csat>=45?"😐":csat>=28?"😟":"😠";
+    faceEl.textContent=f; faceEl.style.transform="scale(1.3)"; setTimeout(function(){faceEl.style.transform="scale(1)";},200);
+  }
+  function say(speaker, text, cb){
+    speakerEl.textContent=speaker; speechEl.textContent="";
+    var i=0; (function tick(){ if(i<=text.length){ speechEl.textContent=text.slice(0,i); i++; setTimeout(tick, 16); } else if(cb) cb(); })();
+  }
+  function bumpAvatar(){ avatarEl.style.transform="scale(1.12)"; setTimeout(function(){avatarEl.style.transform="scale(1)";},180); }
+
+  function render(){
+    refreshProgress();
+    phaseEl.className=""; phaseEl.classList.add("fade");
+    var phase=PHASES[pi];
+    if(phase==="greet") renderGreet();
+    else if(phase==="peril") renderPeril();
+    else if(phase==="locate") renderLocate();
+    else if(phase==="priority") renderPriority();
+    else renderDone();
+  }
+
+  function choiceCards(opts, onPick, twoCol){
+    var html='<div class="q">'+opts.q+'</div><div class="opts'+(twoCol?" grid2":"")+'">';
+    opts.items.forEach(function(it,idx){ html+='<button class="opt" data-i="'+idx+'">'+(it.ic?'<span class="ic">'+it.ic+'</span>':'')+it.label+'</button>'; });
+    html+='</div>';
+    phaseEl.innerHTML=html;
+    var btns=phaseEl.querySelectorAll(".opt");
+    btns.forEach(function(b){ b.addEventListener("click", function(){
+      var i=+b.dataset.i; var it=opts.items[i];
+      btns.forEach(function(x){ x.disabled=true; x.classList.add("dim"); });
+      b.classList.remove("dim"); b.classList.add(it.correct?"good":"bad");
+      if(!it.correct){ opts.items.forEach(function(o,oi){ if(o.correct) btns[oi].classList.remove("dim"); if(o.correct) btns[oi].classList.add("good"); }); }
+      bumpAvatar();
+      if(window.Arcade) (it.correct?Arcade.sfx.capture:Arcade.sfx.fail)();
+      onPick(it);
+      setTimeout(function(){ pi++; render(); }, it.correct?620:1050);
+    }); });
+  }
+
+  function renderGreet(){
+    avatarEl.textContent="🧑";
+    say("Customer", "Hi… I've had a bit of a disaster at home and I don't really know what to do.");
+    choiceCards({
+      q:"How do you open the call?",
+      items:[
+        {label:"I'm really sorry to hear that — you're through to Catalyst, and we'll get this sorted for you.", correct:true, good:8},
+        {label:"What's your postcode and policy number?", correct:false, bad:-4},
+        {label:"Calm down, it's probably nothing serious.", correct:false, bad:-10}
+      ]
+    }, function(it){ updateCsat(it.correct?8:(it.label.indexOf("Calm")>=0?-10:-4)); });
+  }
+
+  function renderPeril(){
+    say("Customer", d.symptom);
+    var items=Claim.PERILS.map(function(p){ return {label:p.name, ic:p.icon, correct:p.id===d.peril}; });
+    // shuffle
+    for(var i=items.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=items[i]; items[i]=items[j]; items[j]=t; }
+    choiceCards({ q:"Log the correct peril:", items:items }, function(it){
+      if(it.correct){ accuracy++; updateCsat(3); setField("f-peril", d.perilName); }
+      else { updateCsat(-5); setField("f-peril", d.perilName); }
+    }, true);
+  }
+
+  var LOCS=[
+    {id:"roof",  label:"Roof",        x:250,y:60},
+    {id:"bathroom",label:"Bathroom",  x:140,y:135},
+    {id:"kitchen",label:"Kitchen",    x:250,y:205},
+    {id:"walls", label:"Walls",       x:360,y:150},
+    {id:"mains", label:"Mains/Drive", x:120,y:262},
+    {id:"drain", label:"Garden Drain",x:380,y:262}
+  ];
+  function renderLocate(){
+    say("Agent", "Right, let's pinpoint where it's coming from.");
+    var hot="";
+    LOCS.forEach(function(l){
+      hot+='<g class="hot" data-id="'+l.id+'">' +
+        '<circle cx="'+l.x+'" cy="'+l.y+'" r="15" fill="rgba(54,197,240,.18)" stroke="#36C5F0" stroke-width="2"/>' +
+        '<text x="'+l.x+'" y="'+(l.y+4)+'" text-anchor="middle" font-size="12" fill="#eaf1fb">?</text>' +
+        '<text x="'+l.x+'" y="'+(l.y+30)+'" text-anchor="middle" font-size="9" fill="#9fb0c8">'+l.label+'</text></g>';
+    });
+    phaseEl.innerHTML =
+      '<div class="q">Tap the most likely source of the problem:</div>' +
+      '<svg class="house" viewBox="0 0 480 300">' +
+        '<polygon points="60,110 250,30 440,110" fill="#243b5e" stroke="#3a557f" stroke-width="2"/>' +
+        '<rect x="90" y="110" width="300" height="160" rx="8" fill="#1a2c46" stroke="#3a557f" stroke-width="2"/>' +
+        '<line x1="90" y1="185" x2="390" y2="185" stroke="#3a557f" stroke-width="2"/>' +
+        '<rect x="0" y="270" width="480" height="6" fill="#2a3f5e"/>' +
+        hot +
+      '</svg>';
+    phaseEl.querySelectorAll(".hot").forEach(function(g){
+      g.addEventListener("click", function(){
+        var id=g.dataset.id, correct=(id===d.correctLoc);
+        phaseEl.querySelectorAll(".hot").forEach(function(x){ x.style.pointerEvents="none"; });
+        var c=g.querySelector("circle");
+        c.setAttribute("fill", correct?"rgba(52,211,153,.5)":"rgba(239,68,68,.5)");
+        c.setAttribute("stroke", correct?"#34d399":"#ef4444");
+        if(!correct){ LOCS.forEach(function(l,li){ if(l.id===d.correctLoc){ var gg=phaseEl.querySelectorAll(".hot")[li]; gg.querySelector("circle").setAttribute("fill","rgba(52,211,153,.5)"); gg.querySelector("circle").setAttribute("stroke","#34d399"); } }); }
+        bumpAvatar(); if(window.Arcade) (correct?Arcade.sfx.capture:Arcade.sfx.fail)();
+        if(correct){ accuracy++; updateCsat(3); } else updateCsat(-5);
+        var label=(LOCS.filter(function(l){return l.id===d.correctLoc;})[0]||{}).label||"—";
+        setField("f-loc", label);
+        setTimeout(function(){ pi++; render(); }, correct?620:1050);
+      });
+    });
+  }
+
+  function renderPriority(){
+    say("Agent", "And how urgently does this need attending?");
+    var correctPri = d.severity>=3?"High":d.severity===2?"Medium":"Low";
+    choiceCards({
+      q:"Set the SLA priority:",
+      items:[
+        {label:"Low · 5 days", correct:correctPri==="Low"},
+        {label:"Medium · 48 hrs", correct:correctPri==="Medium"},
+        {label:"High · same day", correct:correctPri==="High"}
+      ]
+    }, function(it){
+      if(it.correct){ accuracy++; updateCsat(3); } else updateCsat(-4);
+      setField("f-pri", correctPri);
+    }, true);
+  }
+
+  function renderDone(){
+    refreshProgress();
+    var stars = accuracy>=3?3 : accuracy>=2?2:1;
+    var s=""; for(var i=0;i<3;i++) s+='<span class="'+(i<stars?"on":"off")+'">★</span>';
+    var verdict = stars===3?"Textbook intake — customer feels in safe hands.":
+                  stars===2?"Solid intake, claim logged correctly.":
+                            "Claim logged, but a shaky start with the customer.";
+    phaseEl.innerHTML =
+      '<div class="done fade">' +
+        '<div class="stars">'+s+'</div>' +
+        '<p style="color:var(--muted);font-size:14px;margin:2px 0 0">'+verdict+'</p>' +
+        '<p style="font-size:13px;color:#7e94b2;margin:8px 0 0">Customer satisfaction <b style="color:#eaf1fb">'+csat+'%</b></p>' +
+        '<button class="btn" id="continue">Dispatch a crew →</button>' +
+      '</div>';
+    if(window.Arcade) Arcade.sfx.levelup();
+    document.getElementById("continue").addEventListener("click", function(){
+      Claim.completeSetup({ stars:stars, csatDelta:csatDelta, accuracy:accuracy });
+    });
+    document.getElementById("speaker").textContent="System";
+    say("System","Claim #"+d.id+" logged and triaged. Routing to dispatch…");
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>

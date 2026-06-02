@@ -11,6 +11,7 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon.svg" />
 <script src="arcade.js"></script>
+<script src="claim.js"></script>
 <style>
   :root {
     --bg0:#0a1020; --glass:rgba(255,255,255,.07); --line:rgba(255,255,255,.14);
@@ -107,6 +108,8 @@
     <div class="chip"><span class="lbl">Rep</span><span class="v" id="lives">❤️❤️❤️</span></div>
   </div>
 
+  <div id="banner" style="width:100%;max-width:860px;padding:0 14px 12px"></div>
+
   <div class="stage">
     <canvas id="game" width="800" height="500"></canvas>
 
@@ -181,6 +184,10 @@
   var best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0;
   bestEl.textContent = best;
 
+  var CAMPAIGN = new URLSearchParams(location.search).has("claim") && window.Claim &&
+    (function(){ var c=Claim.load(); return !!(c && c.stage==="dispatch"); })();
+  var missed = 0, campaignTarget = 6, campaignFinished = false;
+
   function buildPips(){
     pipsEl.innerHTML = "";
     for (var i=0;i<MAX_CREW;i++){
@@ -235,11 +242,24 @@
     shake = 6; flash = 8; flashColor = "163,230,53";
     if(window.Arcade){ Arcade.sfx.capture(); if(combo>1) Arcade.sfx.combo(Math.min(combo,6)); }
     if(cleared % 8 === 0){ level++; levelEl.textContent=level; if(window.Arcade) Arcade.sfx.levelup(); }
+    if(CAMPAIGN && cleared>=campaignTarget) finishDispatch();
+  }
+
+  function finishDispatch(){
+    if(campaignFinished) return; campaignFinished=true; running=false;
+    var stars = missed===0?3 : missed<=2?2:1;
+    document.getElementById("overTitle").textContent="Crew Dispatched ✓";
+    overStats.textContent="Cleared "+cleared+" callouts · "+missed+" missed · Score "+score;
+    overBest.textContent = stars===3?"On time, every job — great SLA performance!" : stars===2?"Good response across the patch." : "Some jobs breached SLA.";
+    var ab=document.getElementById("againBtn"); ab.textContent="Repair the leak →";
+    ab.onclick=function(){ Claim.completeDispatch({stars:stars, missed:missed, score:score, cleared:cleared}); };
+    overOverlay.classList.remove("hidden");
+    if(window.Arcade){ Arcade.stopMusic(); Arcade.sfx.levelup(); }
   }
 
   function expireJob(job){
     var i = jobs.indexOf(job); if(i>=0) jobs.splice(i,1);
-    lives--; combo=0; livesEl.textContent = "❤️".repeat(Math.max(0,lives)) || "—";
+    lives--; missed++; combo=0; livesEl.textContent = "❤️".repeat(Math.max(0,lives)) || "—";
     shake = 12; flash = 14; flashColor = "239,68,68";
     if(window.Arcade) Arcade.sfx.fail();
     if(lives<=0) gameOver();
@@ -396,8 +416,10 @@
   canvas.addEventListener("touchstart", onPoint, {passive:false});
 
   function startGame(){
+    if(campaignFinished) return;
     jobs=[]; vans=[]; particles=[]; floats=[];
-    score=0; level=1; lives=3; cleared=0; combo=0; lastClear=0;
+    score=0; level=1; lives=3; cleared=0; combo=0; lastClear=0; missed=0;
+    if(CAMPAIGN){ var cc=Claim.load(); level=cc.severity; campaignTarget=4+cc.severity; levelEl.textContent=level; }
     crew=MAX_CREW; crewTimer=0; spawnTimer=0; lastT=0;
     scoreEl.textContent="0"; levelEl.textContent="1"; livesEl.textContent="❤️❤️❤️";
     running=true;
@@ -407,6 +429,7 @@
   }
 
   function gameOver(){
+    if(CAMPAIGN){ finishDispatch(); return; }
     running=false;
     if(score>best){ best=score; localStorage.setItem(BEST_KEY,String(best)); bestEl.textContent=best; }
     overStats.textContent="Jobs cleared: "+cleared+"  ·  Score: "+score+"  ·  Shift "+level;
@@ -418,6 +441,7 @@
   document.getElementById("startBtn").addEventListener("click", startGame);
   document.getElementById("againBtn").addEventListener("click", startGame);
   if(window.Arcade) Arcade.bindMute("muteBtn");
+  if(CAMPAIGN && window.Claim) Claim.mountBanner("banner","dispatch");
 
   requestAnimationFrame(loop);
 })();
