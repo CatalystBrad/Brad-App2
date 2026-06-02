@@ -4,15 +4,15 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Claim Settled · Catalyst</title>
-<meta name="theme-color" content="#081326" />
+<meta name="theme-color" content="#2A1745" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon.svg" />
 <script src="arcade.js"></script>
 <script src="claim.js"></script>
 <style>
-  :root{ --bg0:#081326; --glass:rgba(255,255,255,.06); --line:rgba(255,255,255,.12);
-    --txt:#eaf1fb; --muted:#9fb0c8; --blue:#1E73FF; --cyan:#36C5F0; --green:#34d399; }
+  :root{ --bg0:#160d28; --glass:rgba(255,255,255,.06); --line:rgba(255,255,255,.12);
+    --txt:#eaf1fb; --muted:#b6a6d6; --blue:#7C3AED; --cyan:#E0218A; --green:#34d399; }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
   html,body{ margin:0; min-height:100%; }
   body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -20,7 +20,7 @@
     display:flex; justify-content:center; align-items:flex-start; padding:18px; padding-top:max(18px,env(safe-area-inset-top)); }
   body::before{ content:""; position:fixed; inset:0; z-index:-1;
     background:radial-gradient(80vmax 60vmax at 50% -10%,rgba(52,211,153,.16),transparent 60%),
-               radial-gradient(70vmax 50vmax at 50% 120%,rgba(30,115,255,.16),transparent 60%); }
+               radial-gradient(70vmax 50vmax at 50% 120%,rgba(124,58,237,.18),transparent 60%); }
   .app{ width:100%; max-width:460px; }
   .top{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .top a{ color:var(--cyan); text-decoration:none; font-weight:700; font-size:14px; }
@@ -69,7 +69,7 @@
   if(window.Arcade){ Arcade.mountBrand("brand",{size:24,fontSize:12,sub:"SETTLEMENT"}); }
   var r = Claim.summary();
   var content=document.getElementById("content");
-  if(!r){ content.innerHTML='<div class="card">No active claim found. <a href="index.html" style="color:#36C5F0">Back to Arcade</a></div>'; return; }
+  if(!r){ content.innerHTML='<div class="card">No active claim found. <a href="index.html" style="color:#E0218A">Back to Arcade</a></div>'; return; }
   var d=r.d;
 
   function starRow(n){ var s=""; for(var i=0;i<3;i++) s+='<span class="'+(i<n?"":"off")+'">★</span>'; return s; }
