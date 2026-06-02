@@ -41,7 +41,7 @@ const App = () => {
         <Stack.Screen
           name="CatalystGame"
           component={CatalystGameScreen}
-          options={{title: 'Catalyst Tap'}}
+          options={{title: 'Drain Flow'}}
         />
       </Stack.Navigator>
     </NavigationContainer>

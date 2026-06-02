@@ -116,7 +116,7 @@ const InspectionListScreen = ({navigation}: Props) => {
       <TouchableOpacity
         style={styles.gameFab}
         onPress={() => navigation.navigate('CatalystGame')}>
-        <Text style={styles.gameFabText}>⚡</Text>
+        <Text style={styles.gameFabText}>🚰</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.fab}
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#FFD60A',
+    backgroundColor: '#5AC8FA',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

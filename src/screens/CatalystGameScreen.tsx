@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useMemo} from 'react';
 import {
   View,
   Text,
@@ -8,190 +8,341 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const HIGH_SCORE_KEY = '@catalyst_game_high_score';
-const GRID_SIZE = 9; // 3 x 3
-const ROUND_SECONDS = 30;
+// Directions: 0=N 1=E 2=S 3=W
+const N = 0;
+const E = 1;
+const S = 2;
+const W = 3;
+const DR = [-1, 0, 1, 0];
+const DC = [0, 1, 0, -1];
 
-type CellType = 'empty' | 'target' | 'bomb';
-type GameState = 'idle' | 'playing' | 'over';
+type PipeType = 'straight' | 'elbow' | 'tee';
+const BASE: Record<PipeType, number[]> = {
+  straight: [N, S],
+  elbow: [N, E],
+  tee: [N, E, S],
+};
+
+const SIZE = 5;
+const BEST_KEY = '@catalyst_drain_best';
 
 const {width} = Dimensions.get('window');
-const CELL_GAP = 12;
 const BOARD_PADDING = 16;
-const CELL_SIZE = (width - BOARD_PADDING * 2 - CELL_GAP * 2) / 3;
+const BOARD_INNER = 6;
+const GAP = 6;
+const BOARD_WIDTH = width - BOARD_PADDING * 2;
+const CELL_SIZE = (BOARD_WIDTH - BOARD_INNER * 2 - GAP * (SIZE - 1)) / SIZE;
 
-const CatalystGameScreen = () => {
-  const [cells, setCells] = useState<CellType[]>(
-    Array(GRID_SIZE).fill('empty'),
+interface Cell {
+  type: PipeType;
+  rot: number;
+  fixed: boolean;
+  r: number;
+  c: number;
+  solvedRot?: number;
+}
+
+const idx = (r: number, c: number) => r * SIZE + c;
+
+const shuffle = <T,>(a: T[]): T[] => {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+const dirFromTo = (r: number, c: number, r2: number, c2: number) => {
+  if (r2 === r - 1) return N;
+  if (r2 === r + 1) return S;
+  if (c2 === c + 1) return E;
+  return W;
+};
+
+const connsOf = (cell: Cell) => BASE[cell.type].map(d => (d + cell.rot) % 4);
+const hasDir = (cell: Cell, d: number) => connsOf(cell).indexOf(d) !== -1;
+
+// Carve a self-avoiding path from top-left to bottom-right.
+const carvePath = (): number[][] => {
+  const visited: boolean[][] = Array.from({length: SIZE}, () =>
+    new Array(SIZE).fill(false),
   );
-  const [score, setScore] = useState(0);
-  const [highScore, setHighScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
-  const [gameState, setGameState] = useState<GameState>('idle');
-
-  const spawnTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Load the saved high score once on mount.
-  useEffect(() => {
-    AsyncStorage.getItem(HIGH_SCORE_KEY).then(value => {
-      if (value) {
-        setHighScore(parseInt(value, 10) || 0);
+  const path: number[][] = [];
+  const dfs = (r: number, c: number): boolean => {
+    visited[r][c] = true;
+    path.push([r, c]);
+    if (r === SIZE - 1 && c === SIZE - 1) return true;
+    for (const d of shuffle([N, E, S, W])) {
+      const nr = r + DR[d];
+      const nc = c + DC[d];
+      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && !visited[nr][nc]) {
+        if (dfs(nr, nc)) return true;
       }
-    });
-  }, []);
-
-  const clearTimers = useCallback(() => {
-    if (spawnTimer.current) {
-      clearInterval(spawnTimer.current);
-      spawnTimer.current = null;
     }
-    if (countdownTimer.current) {
-      clearInterval(countdownTimer.current);
-      countdownTimer.current = null;
+    path.pop();
+    return false;
+  };
+  dfs(0, 0);
+  return path;
+};
+
+const typeRotFor = (dirs: number[]): {type: PipeType; rot: number} => {
+  const target = [...dirs].sort().join(',');
+  const types: PipeType[] = ['straight', 'elbow', 'tee'];
+  for (const type of types) {
+    for (let rot = 0; rot < 4; rot++) {
+      const got = BASE[type]
+        .map(d => (d + rot) % 4)
+        .sort()
+        .join(',');
+      if (got === target) return {type, rot};
     }
-  }, []);
+  }
+  return {type: 'elbow', rot: 0};
+};
 
-  // Make sure timers never outlive the screen.
-  useEffect(() => clearTimers, [clearTimers]);
-
-  const endGame = useCallback(() => {
-    clearTimers();
-    setCells(Array(GRID_SIZE).fill('empty'));
-    setGameState('over');
-    setScore(current => {
-      setHighScore(prevHigh => {
-        if (current > prevHigh) {
-          AsyncStorage.setItem(HIGH_SCORE_KEY, String(current));
-          return current;
-        }
-        return prevHigh;
-      });
-      return current;
-    });
-  }, [clearTimers]);
-
-  const spawn = useCallback(() => {
-    setCells(() => {
-      const next: CellType[] = Array(GRID_SIZE).fill('empty');
-      const index = Math.floor(Math.random() * GRID_SIZE);
-      // ~1 in 4 spawns is a bomb to keep players honest.
-      next[index] = Math.random() < 0.25 ? 'bomb' : 'target';
-      return next;
-    });
-  }, []);
-
-  const startGame = useCallback(() => {
-    clearTimers();
-    setScore(0);
-    setTimeLeft(ROUND_SECONDS);
-    setCells(Array(GRID_SIZE).fill('empty'));
-    setGameState('playing');
-
-    spawn();
-    spawnTimer.current = setInterval(spawn, 800);
-    countdownTimer.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          endGame();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [clearTimers, spawn, endGame]);
-
-  const handleCellPress = useCallback(
-    (index: number) => {
-      if (gameState !== 'playing') {
-        return;
+const filledSet = (cells: Cell[], startIdx: number): Set<number> => {
+  const filled = new Set<number>([startIdx]);
+  const queue = [startIdx];
+  while (queue.length) {
+    const cur = queue.shift() as number;
+    const cell = cells[cur];
+    for (const d of connsOf(cell)) {
+      const nr = cell.r + DR[d];
+      const nc = cell.c + DC[d];
+      if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) continue;
+      const nIdx = idx(nr, nc);
+      if (filled.has(nIdx)) continue;
+      if (hasDir(cells[nIdx], (d + 2) % 4)) {
+        filled.add(nIdx);
+        queue.push(nIdx);
       }
-      const cell = cells[index];
-      if (cell === 'empty') {
-        return;
-      }
-
-      setCells(prev => {
-        const next = [...prev];
-        next[index] = 'empty';
-        return next;
-      });
-
-      if (cell === 'target') {
-        setScore(prev => prev + 1);
-      } else if (cell === 'bomb') {
-        setScore(prev => Math.max(0, prev - 2));
-      }
-    },
-    [gameState, cells],
-  );
-
-  const renderCell = (cell: CellType, index: number) => {
-    let label = '';
-    let cellStyle = styles.cellEmpty;
-    if (cell === 'target') {
-      label = '⚡';
-      cellStyle = styles.cellTarget;
-    } else if (cell === 'bomb') {
-      label = '💣';
-      cellStyle = styles.cellBomb;
     }
+  }
+  return filled;
+};
 
-    return (
-      <TouchableOpacity
-        key={index}
-        activeOpacity={0.7}
-        style={[styles.cell, cellStyle]}
-        onPress={() => handleCellPress(index)}>
-        <Text style={styles.cellText}>{label}</Text>
-      </TouchableOpacity>
-    );
+const buildLevel = (): Cell[] => {
+  const path = carvePath();
+  const onPath = new Set(path.map(([r, c]) => idx(r, c)));
+
+  const cells: Cell[] = [];
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      cells.push({type: 'straight', rot: 0, fixed: false, r, c});
+    }
+  }
+
+  const startIdx = idx(0, 0);
+  const endIdx = idx(SIZE - 1, SIZE - 1);
+
+  for (let p = 0; p < path.length; p++) {
+    const [r0, c0] = path[p];
+    const here = idx(r0, c0);
+    const dirs: number[] = [];
+    if (p > 0) {
+      dirs.push(dirFromTo(r0, c0, path[p - 1][0], path[p - 1][1]));
+    } else {
+      dirs.push(W); // inlet stub
+    }
+    if (p < path.length - 1) {
+      dirs.push(dirFromTo(r0, c0, path[p + 1][0], path[p + 1][1]));
+    } else {
+      dirs.push(E); // drain stub
+    }
+    const tr = typeRotFor(dirs);
+    cells[here].type = tr.type;
+    cells[here].rot = tr.rot;
+    cells[here].solvedRot = tr.rot;
+  }
+
+  cells[startIdx].fixed = true;
+  cells[endIdx].fixed = true;
+
+  const decoys: PipeType[] = ['straight', 'elbow', 'elbow', 'tee'];
+  for (let q = 0; q < cells.length; q++) {
+    if (!onPath.has(q)) {
+      cells[q].type = decoys[Math.floor(Math.random() * decoys.length)];
+      cells[q].rot = Math.floor(Math.random() * 4);
+    }
+  }
+
+  // Scramble non-fixed cells so it starts unsolved.
+  for (const cell of cells) {
+    if (!cell.fixed) {
+      cell.rot = Math.floor(Math.random() * 4);
+    }
+  }
+  if (filledSet(cells, startIdx).has(endIdx)) {
+    const free = cells.find(x => !x.fixed);
+    if (free) free.rot = (free.rot + 1) % 4;
+  }
+
+  return cells;
+};
+
+const START_IDX = idx(0, 0);
+const END_IDX = idx(SIZE - 1, SIZE - 1);
+
+const PipeTile = ({cell, filled}: {cell: Cell; filled: boolean}) => {
+  const conns = connsOf(cell);
+  const color = filled ? '#0A84FF' : '#9AA0A8';
+  const thickness = CELL_SIZE * 0.34;
+  const half = CELL_SIZE / 2;
+  const offset = (CELL_SIZE - thickness) / 2;
+
+  const bars: Record<number, object> = {
+    [N]: {top: 0, left: offset, width: thickness, height: half},
+    [S]: {top: half, left: offset, width: thickness, height: half},
+    [W]: {left: 0, top: offset, height: thickness, width: half},
+    [E]: {left: half, top: offset, height: thickness, width: half},
   };
 
   return (
+    <View style={styles.tile}>
+      {conns.map(d => (
+        <View
+          key={d}
+          style={[styles.bar, {backgroundColor: color}, bars[d]]}
+        />
+      ))}
+      <View
+        style={[
+          styles.hub,
+          {
+            backgroundColor: color,
+            width: thickness,
+            height: thickness,
+            top: offset,
+            left: offset,
+          },
+        ]}
+      />
+    </View>
+  );
+};
+
+const CatalystGameScreen = () => {
+  const [cells, setCells] = useState<Cell[]>(() => buildLevel());
+  const [level, setLevel] = useState(1);
+  const [moves, setMoves] = useState(0);
+  const [seconds, setSeconds] = useState(0);
+  const [best, setBest] = useState(0);
+
+  const filled = useMemo(() => filledSet(cells, START_IDX), [cells]);
+  const solved = filled.has(END_IDX);
+
+  useEffect(() => {
+    AsyncStorage.getItem(BEST_KEY).then(v => {
+      if (v) setBest(parseInt(v, 10) || 0);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (solved) return;
+    const t = setInterval(() => setSeconds(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [solved, level]);
+
+  // Persist the best (fewest) move count once a level is solved.
+  useEffect(() => {
+    if (!solved) return;
+    setBest(prev => {
+      if (prev === 0 || moves < prev) {
+        AsyncStorage.setItem(BEST_KEY, String(moves));
+        return moves;
+      }
+      return prev;
+    });
+  }, [solved, moves]);
+
+  const handleTap = useCallback(
+    (i: number) => {
+      if (solved || cells[i].fixed) return;
+      setCells(prev => {
+        const next = prev.map(c => ({...c}));
+        next[i].rot = (next[i].rot + 1) % 4;
+        return next;
+      });
+      setMoves(m => m + 1);
+    },
+    [solved, cells],
+  );
+
+  const newLayout = useCallback(() => {
+    setCells(buildLevel());
+    setMoves(0);
+    setSeconds(0);
+  }, []);
+
+  const nextLevel = useCallback(() => {
+    setLevel(l => l + 1);
+    newLayout();
+  }, [newLayout]);
+
+  return (
     <View style={styles.container}>
+      <Text style={styles.subtitle}>
+        Rotate the pipes — connect the inlet to the drain
+      </Text>
+
       <View style={styles.scoreboard}>
         <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Score</Text>
-          <Text style={styles.statValue}>{score}</Text>
+          <Text style={styles.statLabel}>Level</Text>
+          <Text style={styles.statValue}>{level}</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Moves</Text>
+          <Text style={styles.statValue}>{moves}</Text>
         </View>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Time</Text>
-          <Text style={styles.statValue}>{timeLeft}s</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Best</Text>
-          <Text style={styles.statValue}>{highScore}</Text>
+          <Text style={styles.statValue}>{seconds}s</Text>
         </View>
       </View>
 
       <View style={styles.board}>
-        {cells.map((cell, index) => renderCell(cell, index))}
+        {cells.map((cell, i) => (
+          <TouchableOpacity
+            key={i}
+            activeOpacity={cell.fixed ? 1 : 0.7}
+            onPress={() => handleTap(i)}
+            style={[styles.cell, cell.fixed && styles.cellFixed]}>
+            <PipeTile cell={cell} filled={filled.has(i)} />
+            {i === START_IDX && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>IN</Text>
+              </View>
+            )}
+            {i === END_IDX && (
+              <View style={[styles.badge, styles.badgeOut]}>
+                <Text style={styles.badgeText}>OUT</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {gameState === 'idle' && (
-        <View style={styles.overlay}>
-          <Text style={styles.title}>Catalyst Tap ⚡</Text>
-          <Text style={styles.instructions}>
-            Tap the ⚡ to score. Avoid the 💣 (it costs you 2 points). You have{' '}
-            {ROUND_SECONDS} seconds — how high can you charge up?
+      <View style={styles.controls}>
+        <TouchableOpacity
+          style={[styles.button, styles.buttonSecondary]}
+          onPress={newLayout}>
+          <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
+            New Layout
           </Text>
-          <TouchableOpacity style={styles.button} onPress={startGame}>
-            <Text style={styles.buttonText}>Start Game</Text>
+        </TouchableOpacity>
+        {solved && (
+          <TouchableOpacity style={styles.button} onPress={nextLevel}>
+            <Text style={styles.buttonText}>Next Level →</Text>
           </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
 
-      {gameState === 'over' && (
-        <View style={styles.overlay}>
-          <Text style={styles.title}>Time's Up!</Text>
-          <Text style={styles.finalScore}>You scored {score}</Text>
-          {score >= highScore && score > 0 && (
-            <Text style={styles.newBest}>🏆 New best score!</Text>
-          )}
-          <TouchableOpacity style={styles.button} onPress={startGame}>
-            <Text style={styles.buttonText}>Play Again</Text>
-          </TouchableOpacity>
+      {solved && (
+        <View style={styles.winBanner}>
+          <Text style={styles.winText}>
+            Flow restored! 💧 Solved in {moves} moves
+          </Text>
         </View>
       )}
     </View>
@@ -204,16 +355,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
     padding: BOARD_PADDING,
   },
+  subtitle: {
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
   scoreboard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statBox: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     marginHorizontal: 4,
     alignItems: 'center',
     shadowColor: '#000',
@@ -223,95 +379,106 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#8E8E93',
-    marginBottom: 4,
+    marginBottom: 2,
     textTransform: 'uppercase',
     fontWeight: '600',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#007AFF',
   },
   board: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    width: CELL_SIZE * 3 + CELL_GAP * 2,
+    backgroundColor: '#D8D8DD',
+    padding: BOARD_INNER,
+    borderRadius: 16,
+    width: BOARD_WIDTH,
     alignSelf: 'center',
   },
   cell: {
     width: CELL_SIZE,
     height: CELL_SIZE,
-    borderRadius: 16,
-    marginBottom: CELL_GAP,
-    justifyContent: 'center',
-    alignItems: 'center',
+    margin: GAP / 2,
+    backgroundColor: '#F7F7FA',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
-  cellEmpty: {
-    backgroundColor: '#E5E5EA',
+  cellFixed: {
+    backgroundColor: '#E8F0FF',
   },
-  cellTarget: {
-    backgroundColor: '#FFD60A',
+  tile: {
+    flex: 1,
   },
-  cellBomb: {
-    backgroundColor: '#FF453A',
-  },
-  cellText: {
-    fontSize: CELL_SIZE * 0.45,
-  },
-  overlay: {
+  bar: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(242, 242, 247, 0.96)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
+    borderRadius: 4,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 16,
-    textAlign: 'center',
+  hub: {
+    position: 'absolute',
+    borderRadius: 6,
   },
-  instructions: {
-    fontSize: 16,
-    color: '#3A3A3C',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
+  badge: {
+    position: 'absolute',
+    top: 2,
+    left: 2,
+    backgroundColor: '#0A84FF',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 5,
   },
-  finalScore: {
-    fontSize: 22,
-    color: '#3A3A3C',
-    marginBottom: 12,
+  badgeOut: {
+    backgroundColor: '#34C759',
+    left: undefined,
+    right: 2,
   },
-  newBest: {
-    fontSize: 18,
-    color: '#34C759',
-    fontWeight: '600',
-    marginBottom: 24,
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  controls: {
+    flexDirection: 'row',
+    marginTop: 16,
   },
   button: {
+    flex: 1,
     backgroundColor: '#007AFF',
-    paddingHorizontal: 40,
-    paddingVertical: 16,
-    borderRadius: 30,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginHorizontal: 4,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 8,
+    elevation: 4,
+  },
+  buttonSecondary: {
+    backgroundColor: '#FFFFFF',
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
+  },
+  buttonTextSecondary: {
+    color: '#007AFF',
+  },
+  winBanner: {
+    marginTop: 16,
+    backgroundColor: '#E6F8EC',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+  },
+  winText: {
+    color: '#1B7F3B',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
