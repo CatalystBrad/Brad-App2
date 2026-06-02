@@ -30,4 +30,5 @@ export type RootStackParamList = {
   InspectionList: undefined;
   InspectionForm: { inspectionId?: string };
   InspectionDetails: { inspectionId: string };
+  CatalystGame: undefined;
 };

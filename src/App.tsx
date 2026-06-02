@@ -5,6 +5,7 @@ import {RootStackParamList} from './types';
 import InspectionListScreen from './screens/InspectionListScreen';
 import InspectionFormScreen from './screens/InspectionFormScreen';
 import InspectionDetailsScreen from './screens/InspectionDetailsScreen';
+import CatalystGameScreen from './screens/CatalystGameScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -36,6 +37,11 @@ const App = () => {
           name="InspectionDetails"
           component={InspectionDetailsScreen}
           options={{title: 'Inspection Details'}}
+        />
+        <Stack.Screen
+          name="CatalystGame"
+          component={CatalystGameScreen}
+          options={{title: 'Catalyst Tap'}}
         />
       </Stack.Navigator>
     </NavigationContainer>
