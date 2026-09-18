@@ -324,8 +324,11 @@ export class Store {
     this.db.prepare('INSERT INTO events (case_id, kind, detail) VALUES (?, ?, ?)').run(caseId, kind, json(detail));
   }
 
-  events(caseId) {
-    return this.db.prepare('SELECT * FROM events WHERE case_id = ? ORDER BY id').all(caseId)
-      .map((e) => ({ ...e, detail: unjson(e.detail) }));
+  /** Pass null for events that belong to no case - a rejected link, say. */
+  events(caseId = null) {
+    const rows = caseId == null
+      ? this.db.prepare('SELECT * FROM events WHERE case_id IS NULL ORDER BY id').all()
+      : this.db.prepare('SELECT * FROM events WHERE case_id = ? ORDER BY id').all(caseId);
+    return rows.map((e) => ({ ...e, detail: unjson(e.detail) }));
   }
 }

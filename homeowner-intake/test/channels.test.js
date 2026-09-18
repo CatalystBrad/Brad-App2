@@ -167,3 +167,17 @@ test('escalation never invents a contact route the seller has not given', async 
   await tick(store, dispatcher, {});
   assert.notEqual(store.getParticipant(seller.id).cadence.channel, 'email', 'must not switch to a channel with no address');
 });
+
+test('the email names the property it is about', () => {
+  const msg = email.renderDigest('resume', {
+    to: 'sam@example.test',
+    brand: { firmName: 'Hardcastle & Byrne', fromName: 'Rachel', colour: '#0F6E5C', signOff: 'Rachel' },
+    webLink: 'https://app.test/s/tok',
+    progress: { answered: 3, applicable: 60, minutesLeft: 25 },
+    items: [{ q: 'Any disputes?' }],
+    caseRecord: { address: '12 Example Street, Leeds' },
+  });
+  assert.match(msg.subject, /12 Example Street/);
+  assert.match(msg.html, /12 Example Street, Leeds/, 'a link asking for a click should say what it is about');
+  assert.match(msg.text, /Property: 12 Example Street, Leeds/);
+});

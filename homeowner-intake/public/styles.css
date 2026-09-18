@@ -39,7 +39,8 @@ header {
 .addr { font-size: .82rem; color: var(--muted); margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar { height: 7px; border-radius: 99px; background: var(--line); overflow: hidden; }
 .bar span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .35s ease; }
-.stat { display: flex; justify-content: space-between; align-items: center; margin-top: 7px; font-size: .78rem; color: var(--muted); }
+.stat { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin-top: 7px; font-size: .78rem; color: var(--muted); }
+.statActions { display: flex; gap: .75rem; flex: 0 0 auto; }
 
 .card {
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
@@ -92,7 +93,7 @@ textarea { min-height: 7rem; resize: vertical; line-height: 1.5; }
 .uploadzone {
   border: 1.5px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted); font-size: .9rem;
 }
-.uploadzone input { display: block; margin: .75rem auto 0; }
+.uploadzone .filebtn { margin-top: .75rem; }
 
 /* TA10: a room's worth of fittings on one screen. */
 .checklist { display: grid; gap: .35rem; margin-bottom: .5rem; }
@@ -112,8 +113,24 @@ textarea { min-height: 7rem; resize: vertical; line-height: 1.5; }
 
 .paperwork { border-top: 1px solid var(--line); margin-top: 1.5rem; padding-top: .5rem; }
 .paperwork ul { list-style: none; padding: 0; margin: 0; }
-.paperwork li { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .92rem; display: flex; gap: .6rem; }
-.paperwork li.done { color: var(--muted); text-decoration: line-through; }
+.paperwork li { padding: 12px 0; border-bottom: 1px solid var(--line); font-size: .92rem; display: grid; gap: .55rem; }
+.paperwork li.done { color: var(--muted); }
+.paperwork li.done .pwlabel { text-decoration: line-through; }
+.pwlabel .tick { color: var(--accent); font-weight: 700; }
+.pwlabel .help { margin: .25rem 0 0 1.2rem; font-size: .84rem; }
+.uploadzone.compact { padding: 0; border: 0; text-align: left; }
+/* The raw file input is hidden from view but not from assistive tech or the
+   keyboard - the label is the tap target. */
+.filein { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.filebtn {
+  display: block; min-height: var(--tap); padding: 14px 16px; cursor: pointer;
+  border: 1.5px solid var(--accent); border-radius: 10px; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font-weight: 600; font-size: .95rem; text-align: center;
+}
+.filebtn.compact { margin-left: 1.2rem; text-align: left; font-size: .9rem; padding: 12px 14px; }
+.filein:focus-visible + .filebtn { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filebtn.busy { opacity: .6; border-style: dashed; }
 
 #reviewBody { margin-bottom: 1rem; }
 .rsec { margin: 1.25rem 0 .25rem; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }

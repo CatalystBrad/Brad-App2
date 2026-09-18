@@ -201,7 +201,7 @@ test('an expired or forged magic link gets a human-readable page, not a stack tr
   const res = await fetch(`${base}/s/forged.token.here.now`);
   assert.equal(res.status, 200);
   const body = await res.text();
-  assert.match(body, /link has expired/i);
+  assert.match(body, /link no longer works/i);
 });
 
 test('a forged session cookie is rejected', async (t) => {
@@ -384,4 +384,23 @@ test('a completed form tells the seller they still have to sign, and who else mu
   const after = await jsonFetch(base, '/api/me', { headers: { cookie: samCookie } });
   assert.equal(after.body.signed, false, 'an amended form is unsigned for every owner');
   assert.deepEqual(after.body.sellers.map((s) => s.signed), [false, false]);
+});
+
+test('a bad link tells the seller what to do, not why it failed', async (t) => {
+  const { app, base, close } = await listen();
+  t.after(close);
+  const res = await fetch(`${base}/s/forged.token.never.existed`);
+  const body = await res.text();
+
+  assert.match(body, /no longer works/i);
+  assert.match(body, /send you a fresh one/i);
+  assert.match(body, /Nothing you have already answered has been lost/i);
+
+  // The internal reason must not reach the page: it means nothing to a
+  // homeowner, and it tells anyone probing tokens which part they got wrong.
+  for (const leak of ['bad_signature', 'expired', 'already_used', 'unknown_token']) {
+    assert.equal(body.includes(leak), false, `page leaked "${leak}"`);
+  }
+  // It is still recorded, so a firm can see a link being hammered.
+  assert.ok(app.store.events(null).some((e) => e.kind === 'link_rejected'), 'the rejection should be logged');
 });

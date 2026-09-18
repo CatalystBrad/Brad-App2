@@ -12,7 +12,13 @@
   <div class="wrap">
     <div class="addr" id="addr">Loading…</div>
     <div class="bar"><span id="fill"></span></div>
-    <div class="stat"><span id="stat"></span><button id="settingsBtn" class="ghost" type="button">Settings</button></div>
+    <div class="stat">
+      <span id="stat"></span>
+      <span class="statActions">
+        <button id="paperworkBtn" class="ghost hidden" type="button">Documents</button>
+        <button id="settingsBtn" class="ghost" type="button">Settings</button>
+      </span>
+    </div>
   </div>
 </header>
 
@@ -50,9 +56,10 @@
     <p id="doneBody" class="lede"></p>
     <button class="primary" id="moreBtn" type="button">Keep going — a few more</button>
     <button class="ghost block" id="doneSettings" type="button">Change when I'm asked</button>
+    <button class="ghost block hidden" id="paperworkBack" type="button">Back</button>
     <div id="paperwork" class="paperwork hidden">
       <h3>Paperwork we still need</h3>
-      <p class="help">Photos are fine. A blurry photo of the right certificate beats a perfect one you never send.</p>
+      <p class="help" id="paperworkCount"></p>
       <ul id="paperworkList"></ul>
     </div>
   </section>

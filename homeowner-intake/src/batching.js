@@ -85,7 +85,21 @@ export function nextItem(bank, answers, session = {}) {
     ...session,
     warmUp: plan.warmUp && (session.sessionNumber ?? 1) === 1 && asked === 0,
   });
-  if (sorted.length === 0) return { item: null, sessionDone: true, formDone: true };
+
+  // Questions first, always. Chasing a certificate must never hold up a
+  // question the seller could answer from the sofa. But once the questions run
+  // out, the drip carries on with the paperwork - one photo at a time - rather
+  // than stopping and leaving the documents to nobody.
+  if (sorted.length === 0) {
+    const docs = session.includePaperwork === false
+      ? []
+      : askable(bank, answers, { ...session, track: 'paperwork', warmUp: false });
+    if (docs.length === 0) return { item: null, sessionDone: true, formDone: true, paperworkDone: true };
+
+    const overBudgetDocs = plan.mode === 'count' ? asked >= plan.size : spent >= plan.size;
+    if (overBudgetDocs) return { item: null, sessionDone: true, formDone: true, paperworkDone: false, nextUp: docs[0] };
+    return { item: docs[0], sessionDone: false, formDone: true, paperwork: true };
+  }
 
   const item = sorted[0];
   const overBudget =

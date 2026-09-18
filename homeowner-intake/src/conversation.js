@@ -2,6 +2,7 @@
 // SMS, email and the web app, so an answer given in one place shows up in the
 // others. Channel differences live in src/channels/*, never here.
 import { nextItem, nextBatch } from './batching.js';
+import { outstanding } from './questions.js';
 import { whatsAppSendMode, planNextNudge, isWithinWindow } from './scheduler.js';
 import { getChannel, isSendable } from './channels/index.js';
 import * as replies from './channels/replies.js';
@@ -89,16 +90,23 @@ export async function askNext(store, sender, participantId, { force = false } = 
     lastSection: lastAsked(store, participantId)?.s ?? null,
     sessionNumber: Math.max(1, store.events(p.case_id).filter((e) => e.kind === 'session_started').length),
   };
-  const { item, sessionDone, formDone } = nextItem(store.bank, answers, force ? { ...session, asked: 0 } : session);
+  const step = nextItem(store.bank, answers, force ? { ...session, asked: 0 } : session);
+  const { item, sessionDone, formDone } = step;
 
-  if (formDone) {
+  // The moment the last question is answered, say so and send the sign-off
+  // link - once. Outstanding documents carry on separately after that.
+  if (formDone && !store.events(p.case_id).some((e) => e.kind === 'collection_complete')) {
     const link = store.issueAnswerLink?.(p.case_id, participantId, 'review_and_sign');
+    const docsLeft = outstanding(store.bank, answers, { track: 'paperwork', forms: session.forms }).length;
     await say(store, sender, p, 'review',
-      `That is every question answered - thank you, genuinely.\n\nLast step: have a read through and sign it off${link ? `: ${link}` : ''}. Your solicitor cannot send it to the buyer until you do.`);
-    store.event(p.case_id, 'collection_complete', {});
-    return { done: 'form' };
+      `That is every question answered - thank you, genuinely.\n\nLast step: have a read through and sign it off${link ? `: ${link}` : ''}. Your solicitor cannot send it to the buyer until you do.`
+      + (docsLeft ? `\n\nThere ${docsLeft === 1 ? 'is still 1 document' : `are still ${docsLeft} documents`} to send over too - I will ask for those one at a time.` : ''));
+    store.event(p.case_id, 'collection_complete', { documentsOutstanding: docsLeft });
+    return { done: 'form', documentsOutstanding: docsLeft };
   }
-  if (sessionDone) {
+
+  if (!item) {
+    if (formDone && step.paperworkDone) return { done: 'everything' };
     await say(store, sender, p, 'nudge', SIGN_OFFS[progress.answered % SIGN_OFFS.length]);
     return { done: 'session' };
   }

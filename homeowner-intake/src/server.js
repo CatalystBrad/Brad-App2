@@ -139,10 +139,18 @@ export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender }
       if (req.method === 'GET' && path.startsWith('/s/')) {
         const result = redeemLink(db, SECRET, path.slice(3));
         if (!result.ok) {
+          // The reason stays on the server. A homeowner cannot act on
+          // "bad_signature", and telling someone probing tokens whether one was
+          // forged, expired or already used helps them narrow the search.
+          store.event(null, 'link_rejected', { reason: result.reason, ip: req.socket.remoteAddress });
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-          return res.end(`<!doctype html><meta name=viewport content="width=device-width,initial-scale=1"><body style="font:16px/1.5 system-ui;max-width:26rem;margin:15vh auto;padding:0 1.5rem;color:#16232e">
-<h1 style="font-size:1.2rem">This link has expired</h1><p>Links last 30 days for your security. Reply to the last message you had from us and we will send a fresh one straight away.</p>
-<p style="color:#5b6b7a;font-size:.85rem">Reason: ${result.reason}</p>`);
+          return res.end(`<!doctype html><html lang="en-GB"><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Link no longer works</title>
+<body style="font:16px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:26rem;margin:12vh auto;padding:0 1.5rem;color:#16232e;background:#f7f9fb">
+<h1 style="font-size:1.25rem;margin:0 0 .6rem">This link no longer works</h1>
+<p style="margin:0 0 1rem">Links stop working after 30 days, for your security.</p>
+<p style="margin:0 0 1rem">Reply to the last message you had from us and we will send you a fresh one straight away. If you would rather, contact your solicitor and ask them to re-send it.</p>
+<p style="color:#5f7080;font-size:.9rem;margin:0">Nothing you have already answered has been lost.</p>`);
         }
         store.event(result.caseId, 'link_redeemed', { participantId: result.participantId, purpose: result.purpose });
         res.writeHead(302, {
@@ -195,7 +203,10 @@ export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender }
             optional: !!item.optional, confirmable: !!item.confirmable, multiOk: !!item.multiOk,
             prefilled: answers[item.id]?.status === 'prefilled' ? answers[item.id].value : null,
           } : null,
-          sessionDone: step.sessionDone, formDone: step.formDone,
+          sessionDone: step.sessionDone,
+          formDone: step.formDone,
+          paperwork: !!step.paperwork,
+          paperworkDone: !!step.paperworkDone,
           progress: store.progress(s.caseId),
         });
       }

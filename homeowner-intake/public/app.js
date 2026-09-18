@@ -30,7 +30,13 @@ function paintProgress(p) {
   if (!p) return;
   $('fill').style.width = `${p.percent}%`;
   const left = p.minutesLeft <= 1 ? 'under a minute left' : `about ${p.minutesLeft} min left in total`;
-  $('stat').textContent = `${p.answered} of ${p.applicable} answered · ${left}`;
+  $('stat').textContent = p.percent === 100
+    ? `All ${p.applicable} questions answered`
+    : `${p.answered} of ${p.applicable} answered · ${left}`;
+
+  const docs = p.paperworkOutstanding ?? 0;
+  $('paperworkBtn').classList.toggle('hidden', docs === 0);
+  $('paperworkBtn').textContent = docs ? `Documents (${docs})` : 'Documents';
 }
 
 // ---- rendering an answer control -----------------------------------------
@@ -42,6 +48,48 @@ function optionButton(label, onPick, cls = '') {
   b.setAttribute('aria-pressed', 'false');
   b.addEventListener('click', () => onPick(label, b));
   return b;
+}
+
+/** One file picker, wired to one document request. */
+function uploadControl(item, onDone, { compact = false } = {}) {
+  const zone = document.createElement('div');
+  zone.className = compact ? 'uploadzone compact' : 'uploadzone';
+  if (!compact) zone.innerHTML = '<strong>Take a photo or pick a file</strong><br>Several pages? Send them one at a time.';
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*,application/pdf';
+  input.capture = 'environment';
+  input.id = `up_${item.id.replace(/[^\w]/g, '_')}`;
+  input.className = 'filein';
+  // A styled label is the tap target; the raw input is what actually opens the
+  // camera, so it stays in the DOM and keyboard-reachable, just not on show.
+  const label = document.createElement('label');
+  label.className = compact ? 'filebtn compact' : 'filebtn';
+  label.htmlFor = input.id;
+  label.textContent = compact ? '📷 Take a photo or choose a file' : 'Take a photo or choose a file';
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    input.disabled = true;
+    label.textContent = 'Sending…';
+    label.classList.add('busy');
+    toast('Sending…');
+    try {
+      const res = await fetch(`/api/upload?itemId=${encodeURIComponent(item.id)}&filename=${encodeURIComponent(file.name)}`, {
+        method: 'POST', headers: { 'content-type': file.type || 'application/octet-stream' }, body: file,
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      toast('Got it - thank you');
+      await onDone();
+    } catch {
+      input.disabled = false;
+      label.classList.remove('busy');
+      label.textContent = compact ? '📷 Try that again' : 'Try that again';
+      toast('That did not send. Try again?');
+    }
+  });
+  zone.append(input, label);
+  return zone;
 }
 
 function renderAnswer(item, { correcting = false } = {}) {
@@ -153,26 +201,11 @@ function renderAnswer(item, { correcting = false } = {}) {
   }
 
   if (item.t === 'upload') {
-    const zone = document.createElement('div');
-    zone.className = 'uploadzone';
-    zone.innerHTML = '<strong>Take a photo or pick a file</strong><br>Several pages? Send them one at a time.';
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*,application/pdf';
-    input.capture = 'environment';
-    input.addEventListener('change', async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      toast('Uploading…');
-      await fetch(`/api/upload?itemId=${encodeURIComponent(item.id)}&filename=${encodeURIComponent(file.name)}`, {
-        method: 'POST', headers: { 'content-type': file.type || 'application/octet-stream' }, body: file,
-      });
-      advance();
-    });
-    zone.append(input);
-    box.append(zone);
-    const none = optionButton("I can't find it", () => submit(item, null, 'parked'));
-    box.append(none);
+    box.append(uploadControl(item, async () => {
+      if (state.reviewing) { state.reviewing = false; return openReview(); }
+      await advance();
+    }));
+    box.append(optionButton("I can't find it", () => submit(item, null, 'parked')));
     return;
   }
 
@@ -250,7 +283,7 @@ function paintQuestion(item, progress) {
   state.item = item;
   const section = state.sections[item.s];
   $('section').textContent = section ? `${section.n}. ${section.title}` : '';
-  $('counter').textContent = item.kind === 'followup' ? 'follow-up' : `~${item.secs}s`;
+  $('counter').textContent = item.t === 'upload' ? 'document' : item.kind === 'followup' ? 'follow-up' : `~${item.secs}s`;
   $('question').textContent = item.q;
 
   $('help').textContent = item.help ?? item.hint ?? '';
@@ -300,7 +333,10 @@ async function advance() {
   const res = await api(`/api/next?${p}`);
   paintProgress(res.progress);
 
-  if (res.formDone) return openReview();
+  // Questions are done but documents are not: keep going with those rather
+  // than parking the seller on a screen they can do nothing with.
+  if (res.formDone && !res.item && res.paperworkDone) return openReview();
+  if (res.formDone && !res.item) return sessionComplete(res.progress);
   if (res.sessionDone) return sessionComplete(res.progress);
   paintQuestion(res.item, res.progress);
 }
@@ -308,17 +344,19 @@ async function advance() {
 async function sessionComplete(progress) {
   const cadence = state.me.cadence;
   const when = { twice_daily: 'later today', daily: 'tomorrow', weekdays: 'the next working day', every_other_day: 'in a couple of days', weekly: 'next week' }[cadence.frequency] ?? 'soon';
-  $('doneTitle').textContent = progress.percent >= 80 ? 'Nearly there' : "That's you done for now";
-  $('doneBody').textContent = `${progress.answered} of ${progress.applicable} answered — about ${progress.minutesLeft} minutes of questions left in total. We'll nudge you ${when} between ${cadence.window.start} and ${cadence.window.end}.`;
-  const { items } = await api('/api/paperwork');
-  const outstanding = items.filter((i) => !i.done);
-  $('paperwork').classList.toggle('hidden', outstanding.length === 0);
-  $('paperworkList').replaceChildren(...items.map((i) => {
-    const li = document.createElement('li');
-    li.className = i.done ? 'done' : '';
-    li.textContent = `${i.done ? '✓' : '○'} ${i.label}`;
-    return li;
-  }));
+  const allAnswered = progress.percent === 100;
+  $('doneTitle').textContent = allAnswered ? 'Every question answered' : progress.percent >= 80 ? 'Nearly there' : "That's you done for now";
+  $('doneBody').textContent = allAnswered
+    ? `Just the paperwork left. ${progress.paperworkOutstanding} document${progress.paperworkOutstanding === 1 ? '' : 's'} to send whenever you can find them.`
+    : `${progress.answered} of ${progress.applicable} answered — about ${progress.minutesLeft} minutes of questions left in total. We'll nudge you ${when} between ${cadence.window.start} and ${cadence.window.end}.`;
+  $('moreBtn').textContent = allAnswered ? 'Review and sign' : 'Keep going — a few more';
+  $('moreBtn').onclick = allAnswered
+    ? () => openReview()
+    : () => { state.asked = 0; state.spent = 0; advance(); };
+  $('moreBtn').classList.remove('hidden');
+  $('doneSettings').classList.remove('hidden');
+  $('paperworkBack').classList.add('hidden');
+  await paintPaperwork();
   show('done');
 }
 
@@ -328,6 +366,28 @@ function showSigned() {
     ? `You have signed - thank you. We still need ${others.map((s) => s.name).filter(Boolean).join(' and ') || `${others.length} other owner${others.length === 1 ? '' : 's'}`} to sign before this goes to your solicitor.`
     : 'Your solicitor has it. If anything changes before you complete, come back here and tell us: it is important the buyer has the current picture.';
   show('signed');
+}
+
+/** The document to-do list, with a camera on every outstanding row. */
+async function paintPaperwork() {
+  const { items } = await api('/api/paperwork');
+  const left = items.filter((i) => !i.done);
+  $('paperwork').classList.toggle('hidden', items.length === 0);
+  $('paperworkCount').textContent = left.length === 0
+    ? 'All in - nothing left to send.'
+    : `${left.length} still to send. Photos are fine: a blurry photo of the right certificate beats a perfect one you never send.`;
+
+  paintProgress(await api('/api/me').then((m) => m.progress).catch(() => null));
+  $('paperworkList').replaceChildren(...items.map((i) => {
+    const li = document.createElement('li');
+    li.className = i.done ? 'done' : '';
+    const label = document.createElement('div');
+    label.className = 'pwlabel';
+    label.innerHTML = `<span class="tick">${i.done ? '✓' : '○'}</span> ${escapeHtml(i.label)}${i.hint && !i.done ? `<div class="help">${escapeHtml(i.hint)}</div>` : ''}`;
+    li.append(label);
+    if (!i.done) li.append(uploadControl({ id: i.id }, paintPaperwork, { compact: true }));
+    return li;
+  }));
 }
 
 async function openReview() {
@@ -436,6 +496,24 @@ $('parkBtn').addEventListener('click', async () => {
 });
 $('skipBtn').addEventListener('click', () => submit(state.item, null, 'answered'));
 for (const id of ['settingsBtn', 'startSettings', 'doneSettings']) $(id).addEventListener('click', openSettings);
+let cameFrom = 'start';
+$('paperworkBtn').addEventListener('click', async () => {
+  cameFrom = SCREENS.find((id) => !$(id).classList.contains('hidden')) ?? 'start';
+  await paintPaperwork();
+  $('doneTitle').textContent = 'Paperwork';
+  $('doneBody').textContent = 'Send these whenever you can find them. They are the usual reason a sale sits waiting.';
+  $('moreBtn').classList.add('hidden');
+  $('doneSettings').classList.add('hidden');
+  $('paperworkBack').classList.remove('hidden');
+  show('done');
+});
+$('paperworkBack').addEventListener('click', () => {
+  $('moreBtn').classList.remove('hidden');
+  $('doneSettings').classList.remove('hidden');
+  $('paperworkBack').classList.add('hidden');
+  if (cameFrom === 'review') return openReview();
+  show(cameFrom);
+});
 $('confirmBox').addEventListener('change', (e) => { $('signBtn').disabled = !e.target.checked; });
 $('signBtn').addEventListener('click', async () => {
   const res = await post('/api/sign', { confirmed: true });

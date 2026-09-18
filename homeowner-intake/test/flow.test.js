@@ -485,3 +485,66 @@ test('no two TA10 questions carry the same form number', () => {
   const numbers = ta10.questions.map((q) => q.n);
   assert.equal(new Set(numbers).size, numbers.length, `duplicate numbering: ${numbers.join(', ')}`);
 });
+
+test('once the questions run out, the drip carries on with the paperwork', async () => {
+  const { store, caseId, sender, seller } = setup({ plan: { size: 3 } });
+  const { isApplicable, outstanding } = await import('../src/questions.js');
+  const answers = () => store.answers(caseId);
+
+  for (let pass = 0; pass < 8; pass++) {
+    for (const item of bank.items.filter((i) => (i.track ?? 'form') === 'form' && i.form === 'ta6')) {
+      if (answers()[item.id] && answers()[item.id].status !== 'prefilled') continue;
+      if (!isApplicable(item, answers())) continue;
+      store.saveAnswer(caseId, item.id, { value: item.t === 'multi' ? [item.opts[0]] : (item.opts?.[0] ?? 'Yes'), by: seller.id });
+    }
+  }
+  assert.equal(store.progress(caseId).percent, 100);
+  const docsLeft = outstanding(bank, answers(), { track: 'paperwork', forms: ['ta6'] }).length;
+  assert.ok(docsLeft > 0, 'the answers promised documents');
+
+  // First time through, the seller is told to sign and warned about documents.
+  const done = await askNext(store, sender, seller.id, { force: true });
+  assert.equal(done.done, 'form');
+  assert.equal(done.documentsOutstanding, docsLeft);
+  assert.match(sender.sent.at(-1).text.body, /sign it off/);
+  assert.match(sender.sent.at(-1).text.body, /documents to send over too/);
+
+  // After that, the drip asks for documents one at a time.
+  await askNext(store, sender, seller.id, { force: true });
+  const asked = lastAsked(store, seller.id);
+  assert.ok(asked, 'a document should now be requested');
+  assert.equal(asked.track, 'paperwork');
+  assert.equal(asked.t, 'upload');
+});
+
+test('a document never jumps the queue ahead of a question', async () => {
+  const { store, caseId, seller } = setup();
+  const { nextItem } = await import('../src/batching.js');
+  // 2.5 Yes creates a party wall document request, but plenty of questions remain.
+  store.saveAnswer(caseId, '2.5', { value: 'Yes', by: seller.id });
+  for (let i = 0; i < 12; i++) {
+    const step = nextItem(bank, store.answers(caseId), { plan: { mode: 'count', size: 40 }, asked: i, forms: ['ta6'] });
+    if (!step.item) break;
+    assert.notEqual(step.item.track, 'paperwork', `${step.item.id} jumped the queue while questions remained`);
+    store.saveAnswer(caseId, step.item.id, { value: step.item.t === 'multi' ? [step.item.opts[0]] : (step.item.opts?.[0] ?? 'No'), by: seller.id });
+  }
+});
+
+test('uploading a document from the paperwork list marks it done', async () => {
+  const { store, caseId, seller } = setup();
+  const { paperworkList } = await import('../src/batching.js');
+  store.saveAnswer(caseId, '2.5', { value: 'Yes', by: seller.id });
+
+  const before = paperworkList(bank, store.answers(caseId), { forms: ['ta6'] });
+  const target = before.find((d) => d.id === '2.5::doc');
+  assert.ok(target, 'a party wall notice should be requested');
+  assert.equal(target.done, false);
+  assert.ok(target.label, 'every row needs a label the seller can act on');
+
+  store.addAttachment(caseId, { itemId: '2.5::doc', filename: 'party-wall.jpg', mime: 'image/jpeg', bytes: 1234, path: '/tmp/x', by: seller.id });
+
+  const after = paperworkList(bank, store.answers(caseId), { forms: ['ta6'] });
+  assert.equal(after.find((d) => d.id === '2.5::doc').done, true);
+  assert.equal(store.attachments(caseId).length, 1);
+  assert.equal(store.progress(caseId).paperworkOutstanding, before.filter((d) => !d.done).length - 1);
+});

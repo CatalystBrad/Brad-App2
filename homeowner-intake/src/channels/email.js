@@ -41,6 +41,8 @@ export function renderDigest(kind, { to, brand, webLink, progress, items = [], c
     '',
     intro,
     '',
+    caseRecord?.address ? `Property: ${caseRecord.address}` : '',
+    caseRecord?.address ? '' : null,
     ...(preview.length ? ['Coming up:', ...preview.map((i) => `  - ${i.q}`), ''] : []),
     `Answer them here: ${webLink}`,
     '',
@@ -59,6 +61,7 @@ export function renderDigest(kind, { to, brand, webLink, progress, items = [], c
   <tr><td style="padding:24px 24px 8px;">
     <div style="font-size:13px;color:#5f7080;margin-bottom:14px;">${esc(b.firmName)}</div>
     <div style="font-size:16px;line-height:1.55;">${esc(intro)}</div>
+    ${caseRecord?.address ? `<div style="font-size:14px;color:#5f7080;margin-top:12px;padding-top:12px;border-top:1px solid #e6ebf0;">${esc(caseRecord.address)}</div>` : ''}
   </td></tr>
   ${preview.length ? `<tr><td style="padding:8px 24px 0;">
     <div style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#5f7080;margin-bottom:8px;">Coming up</div>
