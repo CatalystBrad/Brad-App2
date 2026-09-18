@@ -9,7 +9,7 @@ const api = async (path, opts = {}) => {
 };
 const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body) });
 
-const state = { me: null, item: null, asked: 0, spent: 0, lastSection: null, sections: {} };
+const state = { me: null, item: null, asked: 0, spent: 0, lastSection: null, sections: {}, reviewing: false };
 
 const SCREENS = ['loading', 'start', 'qcard', 'done', 'review', 'signed'];
 function show(id) {
@@ -266,6 +266,7 @@ function paintQuestion(item, progress) {
   }
 
   $('skipBtn').classList.toggle('hidden', !item.optional);
+  $('backToReview').classList.toggle('hidden', !state.reviewing);
   renderAnswer(item);
   paintProgress(progress);
   show('qcard');
@@ -276,10 +277,20 @@ const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&l
 // ---- flow -----------------------------------------------------------------
 async function submit(item, value, status = 'answered') {
   const res = await post('/api/answer', { itemId: item.id, value, status });
+  paintProgress(res.progress);
+
+  // Editing from the review screen goes back to the review screen. Dropping
+  // someone into the next question when they came to fix one answer is how
+  // people lose their place and give up.
+  if (state.reviewing) {
+    state.reviewing = false;
+    toast('Changed');
+    return openReview();
+  }
+
   state.asked += 1;
   state.spent += item.secs ?? 30;
   state.lastSection = item.s;
-  paintProgress(res.progress);
   await advance();
 }
 
@@ -311,6 +322,14 @@ async function sessionComplete(progress) {
   show('done');
 }
 
+function showSigned() {
+  const others = (state.me.sellers ?? []).filter((s) => !s.signed);
+  $('signed').querySelector('.lede').textContent = others.length
+    ? `You have signed - thank you. We still need ${others.map((s) => s.name).filter(Boolean).join(' and ') || `${others.length} other owner${others.length === 1 ? '' : 's'}`} to sign before this goes to your solicitor.`
+    : 'Your solicitor has it. If anything changes before you complete, come back here and tell us: it is important the buyer has the current picture.';
+  show('signed');
+}
+
 async function openReview() {
   const data = await api('/api/review');
   const body = $('reviewBody');
@@ -329,8 +348,11 @@ async function openReview() {
       edit.type = 'button';
       edit.textContent = 'Change';
       edit.addEventListener('click', async () => {
-        const item = await api(`/api/next?asked=0&spent=0`);
-        paintQuestion({ ...(item.item ?? {}), id: row.id, q: row.question, t: guessType(row) }, data.progress);
+        // Fetch the real question, so it re-opens with the control it was
+        // asked with - a choice stays a choice, a fittings list stays a list.
+        const { item } = await api(`/api/item?id=${encodeURIComponent(row.id)}`);
+        state.reviewing = true;
+        paintQuestion(item, data.progress);
       });
       div.append(left, edit);
       body.append(div);
@@ -340,8 +362,6 @@ async function openReview() {
   $('signBtn').disabled = true;
   show('review');
 }
-
-const guessType = (row) => (row.answer === 'Yes' || row.answer === 'No' ? 'yesno' : 'longtext');
 
 async function openSettings() {
   const dlg = $('settings');
@@ -397,13 +417,18 @@ async function boot() {
     : `Your solicitor needs the standard property information for ${state.me.property.address ?? 'your sale'}. It is normally a 20-page form in one sitting. We have split it into ${f.sessionsLeft} short goes of ${state.me.plan.mode === 'count' ? `${state.me.plan.size} questions` : `${Math.round(state.me.plan.size / 60)} minutes`}.`;
   $('beginBtn').textContent = p.answered > 0 ? 'Carry on' : 'Start';
 
-  if (location.hash === '#review' || state.me.purpose === 'review_and_sign') return openReview();
+  // Someone who has answered everything came back to sign, not to answer.
+  // The form cannot go to the buyer until they do, so take them there rather
+  // than showing a start screen with nothing left to start.
+  if (state.me.signed) return showSigned();
+  if (location.hash === '#review' || state.me.purpose === 'review_and_sign' || p.percent === 100) return openReview();
   show('start');
 }
 
 $('beginBtn').addEventListener('click', () => { state.asked = 0; state.spent = 0; advance(); });
 $('moreBtn').addEventListener('click', () => { state.asked = 0; state.spent = 0; advance(); });
 $('helpBtn').addEventListener('click', () => $('help').classList.toggle('hidden'));
+$('backToReview').addEventListener('click', () => { state.reviewing = false; openReview(); });
 $('parkBtn').addEventListener('click', async () => {
   await post('/api/park', { itemId: state.item.id, days: 3 });
   toast("Parked — we'll ask again in a few days");
@@ -414,8 +439,8 @@ for (const id of ['settingsBtn', 'startSettings', 'doneSettings']) $(id).addEven
 $('confirmBox').addEventListener('change', (e) => { $('signBtn').disabled = !e.target.checked; });
 $('signBtn').addEventListener('click', async () => {
   const res = await post('/api/sign', { confirmed: true });
-  show(res.allSigned ? 'signed' : 'signed');
-  if (!res.allSigned) $('signed').querySelector('.lede').textContent = `Thank you. We still need ${res.of - res.signed} other owner${res.of - res.signed === 1 ? '' : 's'} to sign before this goes to your solicitor.`;
+  state.me = await api('/api/me');
+  showSigned();
 });
 
 boot().catch((err) => {

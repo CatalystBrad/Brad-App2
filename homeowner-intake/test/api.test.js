@@ -273,3 +273,115 @@ test('health and static serving work', async (t) => {
   assert.match(await page.text(), /<title>Your property questions<\/title>/);
   assert.equal((await fetch(`${base}/../package.json`)).status, 404);
 });
+
+test('the review screen can re-open any answer with its real control', async (t) => {
+  const { base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base);
+  const created = await jsonFetch(base, '/api/cases', {
+    method: 'POST', headers: a.headers,
+    body: JSON.stringify({
+      ref: 'REV/1', address: '5 Review Road', forms: ['ta6', 'ta10'],
+      seller: { name: 'Sam', phone: '447700900801' },
+    }),
+  });
+  const redeem = await fetch(`${base}/s/${created.body.link.split('/s/')[1]}`, { redirect: 'manual' });
+  const cookie = redeem.headers.getSetCookie()[0].split(';')[0];
+  const auth = { headers: { cookie } };
+
+  // A multiple-choice question must come back as a choice with its own options -
+  // guessing the control from the stored answer would turn it into free text
+  // and put an invalid value on a legal form.
+  const choice = await jsonFetch(base, '/api/item?id=2.1a', auth);
+  assert.equal(choice.status, 200);
+  assert.equal(choice.body.item.t, 'choice');
+  assert.deepEqual(choice.body.item.opts, ['Me (the seller)', 'The neighbour', 'Shared', 'Not known']);
+
+  // A TA10 checklist must come back as a checklist, with its rows.
+  const list = await jsonFetch(base, '/api/item?id=fc.2', auth);
+  assert.equal(list.body.item.t, 'checklist');
+  assert.ok(list.body.item.rows.length > 5);
+
+  // The current answer comes with it, so the control can show what is there.
+  await jsonFetch(base, '/api/answer', { method: 'POST', body: JSON.stringify({ itemId: '2.1a', value: 'Shared' }), ...auth });
+  const again = await jsonFetch(base, '/api/item?id=2.1a', auth);
+  assert.equal(again.body.current.value, 'Shared');
+
+  assert.equal((await jsonFetch(base, '/api/item?id=not-a-question', auth)).status, 404);
+  assert.equal((await jsonFetch(base, '/api/item?id=2.1a')).status, 401, 'must need the seller session');
+});
+
+test('a TA6-only case cannot open a TA10 question by id', async (t) => {
+  const { base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base);
+  const created = await jsonFetch(base, '/api/cases', {
+    method: 'POST', headers: a.headers,
+    body: JSON.stringify({ ref: 'REV/2', address: '6 Review Road', seller: { name: 'Jo', phone: '447700900802' } }),
+  });
+  const redeem = await fetch(`${base}/s/${created.body.link.split('/s/')[1]}`, { redirect: 'manual' });
+  const cookie = redeem.headers.getSetCookie()[0].split(';')[0];
+  assert.equal((await jsonFetch(base, '/api/item?id=fc.2', { headers: { cookie } })).status, 404);
+  assert.equal((await jsonFetch(base, '/api/item?id=2.1a', { headers: { cookie } })).status, 200);
+});
+
+test('a completed form tells the seller they still have to sign, and who else must', async (t) => {
+  const { app, base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base);
+  const created = await jsonFetch(base, '/api/cases', {
+    method: 'POST', headers: a.headers,
+    body: JSON.stringify({ ref: 'SIGN/1', address: '7 Sign Street', seller: { name: 'Sam Okafor', phone: '447700900901' } }),
+  });
+  const caseId = created.body.caseId;
+  const second = app.store.addParticipant(caseId, { name: 'Ada Okafor', phone: '447700900902' });
+
+  const cookieFor = async (link) => {
+    const res = await fetch(`${base}/s/${link.split('/s/')[1]}`, { redirect: 'manual' });
+    return res.headers.getSetCookie()[0].split(';')[0];
+  };
+  const samCookie = await cookieFor(created.body.link);
+  const adaCookie = await cookieFor(app.store.issueAnswerLink(caseId, second.id));
+
+  // Answer everything as Sam.
+  const { isApplicable } = await import('../src/questions.js');
+  for (let pass = 0; pass < 8; pass++) {
+    const answers = app.store.answers(caseId);
+    for (const item of app.bank.items.filter((i) => (i.track ?? 'form') === 'form' && i.form === 'ta6')) {
+      if (answers[item.id] && answers[item.id].status !== 'prefilled') continue;
+      if (!isApplicable(item, answers)) continue;
+      app.store.saveAnswer(caseId, item.id, { value: item.t === 'multi' ? [item.opts[0]] : (item.opts?.[0] ?? 'No'), by: created.body.participantId });
+    }
+  }
+
+  // Before signing: the client is told it is complete and unsigned, which is
+  // what sends it to the sign-off screen rather than "carry on answering".
+  let me = await jsonFetch(base, '/api/me', { headers: { cookie: samCookie } });
+  assert.equal(me.body.progress.percent, 100);
+  assert.equal(me.body.signed, false);
+  assert.deepEqual(me.body.sellers.map((s) => s.signed), [false, false]);
+
+  const first = await jsonFetch(base, '/api/sign', { method: 'POST', body: JSON.stringify({ confirmed: true }), headers: { cookie: samCookie } });
+  assert.equal(first.body.allSigned, false);
+  assert.equal(app.store.getCase(caseId).status, 'collecting', 'one signature is not enough');
+
+  // Sam now sees the signed screen and can be told who is outstanding by name.
+  me = await jsonFetch(base, '/api/me', { headers: { cookie: samCookie } });
+  assert.equal(me.body.signed, true);
+  assert.deepEqual(me.body.sellers.find((s) => !s.signed).name, 'Ada Okafor');
+
+  // Signing without ticking the box is refused.
+  const unticked = await jsonFetch(base, '/api/sign', { method: 'POST', body: JSON.stringify({}), headers: { cookie: adaCookie } });
+  assert.equal(unticked.status, 400);
+
+  const both = await jsonFetch(base, '/api/sign', { method: 'POST', body: JSON.stringify({ confirmed: true }), headers: { cookie: adaCookie } });
+  assert.equal(both.body.allSigned, true);
+  assert.equal(app.store.getCase(caseId).status, 'signed');
+
+  // And an amendment after signing re-opens it for everyone.
+  await jsonFetch(base, '/api/answer', { method: 'POST', body: JSON.stringify({ itemId: '3.1', value: 'Yes' }), headers: { cookie: samCookie } });
+  assert.equal(app.store.getCase(caseId).status, 'collecting');
+  const after = await jsonFetch(base, '/api/me', { headers: { cookie: samCookie } });
+  assert.equal(after.body.signed, false, 'an amended form is unsigned for every owner');
+  assert.deepEqual(after.body.sellers.map((s) => s.signed), [false, false]);
+});

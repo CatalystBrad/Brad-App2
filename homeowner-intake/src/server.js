@@ -159,6 +159,9 @@ export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender }
         const c = store.getCase(s.caseId);
         return json(res, 200, {
           name: p?.name, role: p?.role, purpose: s.purpose,
+          signed: !!p?.signed_at,
+          caseStatus: c.status,
+          sellers: store.sellers(s.caseId).map((x) => ({ name: x.name, signed: !!x.signed_at })),
           property: { address: c.address, postcode: c.postcode, ref: c.ref, firm: c.firm, deadline: c.deadline },
           plan: p?.plan, cadence: p?.cadence,
           progress: store.progress(s.caseId),
@@ -194,6 +197,26 @@ export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender }
           } : null,
           sessionDone: step.sessionDone, formDone: step.formDone,
           progress: store.progress(s.caseId),
+        });
+      }
+
+      // One question by id, so the review screen can re-open an answer with the
+      // control it was actually asked with.
+      if (path === '/api/item' && req.method === 'GET') {
+        const s = session(req, res); if (!s) return;
+        const item = bank.byId.get(url.searchParams.get('id'));
+        if (!item) return json(res, 404, { error: 'unknown_item' });
+        if (!store.formsFor(s.caseId).includes(item.form)) return json(res, 404, { error: 'unknown_item' });
+        const answers = store.answers(s.caseId);
+        const current = answers[item.id];
+        return json(res, 200, {
+          item: {
+            id: item.id, n: item.n, s: item.s, t: item.t, q: item.q, help: item.help, hint: item.hint,
+            opts: item.opts, fields: item.fields, rows: item.rows, kind: item.kind, secs: item.secs, form: item.form,
+            optional: !!item.optional, confirmable: !!item.confirmable, multiOk: !!item.multiOk,
+            prefilled: current?.status === 'prefilled' ? current.value : null,
+          },
+          current: current ? { value: current.value, status: current.status } : null,
         });
       }
 
