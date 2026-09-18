@@ -96,6 +96,62 @@ function renderAnswer(item, { correcting = false } = {}) {
     return;
   }
 
+  // A room at a time: every fitting on one screen, three taps wide. Far faster
+  // than ninety separate questions, and it reads like the list it is.
+  if (item.t === 'checklist') {
+    const picked = {};
+    const grid = document.createElement('div');
+    grid.className = 'checklist';
+    for (const row of item.rows ?? []) {
+      const line = document.createElement('div');
+      line.className = 'clrow';
+      const label = document.createElement('span');
+      label.className = 'cllabel';
+      label.textContent = row.label;
+      const choices = document.createElement('div');
+      choices.className = 'clchoices';
+      for (const opt of item.opts ?? []) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'clopt';
+        b.textContent = opt;
+        b.setAttribute('aria-pressed', 'false');
+        b.setAttribute('aria-label', `${row.label}: ${opt}`);
+        b.addEventListener('click', () => {
+          picked[row.k] = { status: opt };
+          for (const sib of choices.children) sib.setAttribute('aria-pressed', String(sib === b));
+          line.classList.add('answered');
+          priceBox.hidden = opt !== item.opts[1];
+          done.textContent = remaining() === 0 ? 'Save and continue' : `Save (${remaining()} left)`;
+        });
+        choices.append(b);
+      }
+      const priceBox = document.createElement('input');
+      priceBox.type = 'text';
+      priceBox.className = 'clprice';
+      priceBox.placeholder = 'Would sell it for… (optional)';
+      priceBox.hidden = true;
+      priceBox.addEventListener('input', () => {
+        if (picked[row.k]) picked[row.k].price = priceBox.value || undefined;
+      });
+      line.append(label, choices, priceBox);
+      grid.append(line);
+    }
+    const remaining = () => (item.rows ?? []).filter((r) => !picked[r.k]).length;
+    box.append(grid);
+
+    const done = document.createElement('button');
+    done.className = 'primary';
+    done.type = 'button';
+    done.textContent = `Save (${(item.rows ?? []).length} left)`;
+    done.addEventListener('click', () => {
+      if (remaining() > 0 && !confirm(`${remaining()} not answered yet. Save anyway and come back to them?`)) return;
+      save(picked);
+    });
+    box.append(done);
+    return;
+  }
+
   if (item.t === 'upload') {
     const zone = document.createElement('div');
     zone.className = 'uploadzone';
@@ -161,6 +217,13 @@ function renderAnswer(item, { correcting = false } = {}) {
 
   // free text, dates, years
   const input = document.createElement(item.t === 'longtext' ? 'textarea' : 'input');
+  // When they are correcting something we pre-filled, start from what we had.
+  // Retyping an address from scratch to fix a postcode is a silly ask.
+  if (correcting && item.prefilled != null) {
+    input.value = typeof item.prefilled === 'object'
+      ? Object.values(item.prefilled).filter(Boolean).join(', ')
+      : String(item.prefilled);
+  }
   if (item.t !== 'longtext') {
     input.type = item.t.startsWith('date') ? 'date' : item.t.startsWith('month_year') ? 'month' : item.t.startsWith('year') ? 'number' : 'text';
     if (input.type === 'number') { input.min = '1800'; input.max = String(new Date().getFullYear()); input.placeholder = 'e.g. 2018'; }
@@ -178,6 +241,8 @@ function renderAnswer(item, { correcting = false } = {}) {
   });
   box.append(next);
   if (item.t.endsWith('_or_unknown')) box.append(optionButton('Not known', () => save('Not known')));
+  // A way back from a mis-tap on "Not quite".
+  if (correcting && item.prefilled != null) box.append(optionButton('Actually, it was right', () => save(item.prefilled)));
   input.focus({ preventScroll: true });
 }
 

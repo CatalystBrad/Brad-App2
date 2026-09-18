@@ -147,10 +147,43 @@ sellers.
 
 ## What the conveyancer gets
 
-- A live chase list: which cases are blocked, on what, and for how long.
-- The finished TA6 in the familiar order, printable to PDF, with the audit trail.
-- A `readyToSend` flag that is only true when every applicable question is
-  answered, every owner has signed, and nothing is parked.
+The dashboard answers one question at a glance: **which of my files need me
+today, and what for?** Every file carries a plain-English verdict rather than a
+percentage to interpret:
+
+| Verdict | What it means |
+|---|---|
+| Not responding - try ringing | Three or more nudges ignored; the digital channels are spent |
+| Complete - waiting on signatures | Every question answered, an owner has not signed |
+| Behind for exchange in N days | More form left than time, at the current cadence |
+| Quiet for N days | No activity, not yet escalated |
+| N documents outstanding | Answers done, certificates still to come |
+| Signed and ready | Nothing left to do |
+
+Questions and paperwork are counted separately, because they are chased
+differently — and because a form that is fully answered but missing its
+certificates must not read as "unanswered". A file is `readyToSend` only when
+every applicable question is answered, every promised document has arrived, and
+every owner on the title has signed.
+
+The finished forms export in the familiar order, printable to PDF, with the
+audit trail attached and the gaps stated at the top.
+
+## The second form: TA10
+
+TA10, the fittings and contents list, is 90-odd tick boxes: does the fridge stay,
+does the shed stay, do the curtains stay. Asked one at a time it would be
+tedious; asked as paper it gets skimmed and half-completed, which is where
+moving-day arguments come from.
+
+So it is asked as **11 room-by-room checklists** — every fitting in a room on one
+screen, three taps wide, about a minute each. 69 items in roughly 14 minutes.
+Anything marked *I'm taking it* offers an optional price, which turns a
+moving-day argument into a line in the contract.
+
+This also proved the architecture: TA10 was a data file plus one new question
+type. The drip engine, scheduler, channels, audit trail and export needed no
+changes. TA7 for leasehold is the same shape.
 
 ## Rollout
 
@@ -164,9 +197,8 @@ sells this to a firm.
 data first: they cover the most fields for the least integration work. Bill OCR
 after that.
 
-**Phase 3 — the rest of the pack.** TA10 (fittings and contents) is the same
-machinery with a different question bank and would take days, not weeks. TA7 for
-leasehold is bigger but the same shape.
+**Phase 3 — the rest of the pack.** TA10 is done. TA7 for leasehold is bigger but
+the same shape: a question bank and, at most, one new question type.
 
 **Phase 4 — where the real value is.** Once the answers are structured data
 rather than a PDF, the buyer's solicitor can be sent structured data too. That is

@@ -272,3 +272,98 @@ test('"not quite" sends them somewhere they can correct it', async () => {
   assert.match(sender.sent.at(-1).text.body, /put us right here/);
   assert.equal(store.answers(caseId)['1.1'].status, 'prefilled', 'still unconfirmed');
 });
+
+test('questions and paperwork are counted separately, and both gate readiness', async () => {
+  const { store, caseId, seller } = setup();
+  const { isApplicable } = await import('../src/questions.js');
+  const answers = () => store.answers(caseId);
+
+  // Answer every question, but send no documents.
+  for (let pass = 0; pass < 8; pass++) {
+    for (const item of bank.items.filter((i) => (i.track ?? 'form') === 'form')) {
+      if (answers()[item.id] && answers()[item.id].status !== 'prefilled') continue;
+      if (!isApplicable(item, answers())) continue;
+      store.saveAnswer(caseId, item.id, { value: item.t === 'multi' ? [item.opts[0]] : (item.opts?.[0] ?? 'Yes'), by: seller.id });
+    }
+  }
+  const data = buildExport(store, caseId);
+  assert.equal(store.progress(caseId).percent, 100);
+  assert.equal(data.outstanding.length, 0, 'no questions should be left');
+  assert.ok(data.documentsOutstanding.length > 0, 'the answers promised documents that have not arrived');
+  assert.equal(data.outstanding.some((o) => o.question === undefined), false);
+
+  // Signed, but the certificates never came: not ready for a buyer.
+  store.sign(caseId, seller.id);
+  const chase = toChaseList(buildExport(store, caseId));
+  assert.equal(chase.signed, true);
+  assert.equal(chase.readyToSend, false, 'missing paperwork must block readiness');
+  assert.ok(chase.documentsOutstanding > 0);
+});
+
+test('a pre-filled answer nobody confirmed still counts as outstanding', async () => {
+  const { store, caseId } = setup();
+  await applyPrefill(store, caseId);
+  const data = buildExport(store, caseId);
+  assert.ok(data.outstanding.some((o) => o.status === 'prefilled'), 'our guess is not a finished answer');
+});
+
+test('a TA10 checklist reads back as labels, not storage keys', async () => {
+  const store = new Store(openDb(), bank).configureLinks({ secret: 's', baseUrl: 'https://app.test' });
+  const c = store.createCase({ firm: 'Example & Co', address: '12 Example Street', forms: ['ta6', 'ta10'] });
+  const seller = store.addParticipant(c.id, { name: 'Sam', phone: '447700900123' });
+
+  store.saveAnswer(c.id, 'fc.2', {
+    value: {
+      fridge: { status: "I'm taking it", price: '£150' },
+      dishwasher: { status: 'Stays' },
+      range: { status: 'Not there' },
+    },
+    by: seller.id,
+  });
+
+  const data = buildExport(store, c.id);
+  const row = data.sections.flatMap((s) => s.rows).find((r) => r.id === 'fc.2');
+  assert.match(row.answer, /Fridge or fridge-freezer: I'm taking it \(would sell for £150\)/);
+  assert.match(row.answer, /Dishwasher: Stays/);
+  assert.equal(row.answer.includes('dishwasher:'), false, 'the storage key must not reach the form');
+  assert.match(toHtml(data), /Fittings and Contents/);
+});
+
+test('adding TA10 to a case adds questions without touching the TA6 answers', () => {
+  const store = new Store(openDb(), bank).configureLinks({ secret: 's', baseUrl: 'https://app.test' });
+  const c = store.createCase({ firm: 'Example & Co', address: '1 Test Road' });
+  const seller = store.addParticipant(c.id, { name: 'Sam', phone: '447700900123' });
+  store.saveAnswer(c.id, '3.1', { value: 'No', by: seller.id });
+
+  const before = store.progress(c.id);
+  assert.deepEqual(store.formsFor(c.id), ['ta6']);
+
+  store.setForms(c.id, ['ta6', 'ta10']);
+  const after = store.progress(c.id);
+  assert.ok(after.applicable > before.applicable, 'TA10 should add questions');
+  assert.equal(after.answered, before.answered, 'existing TA6 answers must be untouched');
+  assert.equal(store.answers(c.id)['3.1'].value, 'No');
+
+  const data = buildExport(store, c.id);
+  assert.match(data.form, /TA6 \+ TA10/);
+  assert.ok(data.sections.some((s) => s.form === 'ta10'));
+});
+
+test('a TA6-only case never sees a TA10 section in its export', () => {
+  const store = new Store(openDb(), bank).configureLinks({ secret: 's', baseUrl: 'https://app.test' });
+  const c = store.createCase({ firm: 'Example & Co', address: '2 Test Road' });
+  const data = buildExport(store, c.id);
+  assert.equal(data.sections.some((s) => s.form === 'ta10'), false);
+  assert.equal(data.form, 'TA6');
+});
+
+test('messaging channels hand a checklist to the web app rather than mangling it', async () => {
+  const wa = await import('../src/channels/whatsapp.js');
+  const sms = await import('../src/channels/sms.js');
+  const checklist = bank.byId.get('fc.2');
+  const w = wa.renderQuestion(checklist, { to: '4477', webLink: 'https://app.test/s/tok' });
+  assert.equal(w.mode, 'web_handoff');
+  assert.match(w.payload.text.body, /faster to tap through on a screen/);
+  const m = sms.renderQuestion(checklist, { to: '4477', webLink: 'https://app.test/s/tok' });
+  assert.equal(m.mode, 'web_handoff');
+});

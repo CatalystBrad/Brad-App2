@@ -81,3 +81,42 @@ test('a fully answered form reports 100 per cent', () => {
   const p = progress(bank, answers);
   assert.equal(p.percent, 100, `still outstanding: ${outstanding(bank, answers).map((i) => i.id).join(', ')}`);
 });
+
+test('forms can be loaded separately or together', () => {
+  const ta6 = loadBank(['ta6']);
+  const ta10 = loadBank(['ta10']);
+  const both = loadBank(['ta6', 'ta10']);
+  assert.equal(both.items.length, ta6.items.length + ta10.items.length);
+  assert.ok(ta10.items.every((i) => i.form === 'ta10'));
+  assert.equal(ta6.items.some((i) => i.form === 'ta10'), false);
+  assert.throws(() => loadBank(['ta99']), /unknown form/);
+});
+
+test('a question id used by two forms is rejected at load, not discovered later', () => {
+  // TA6 numbers its parking section 10.x; TA10 is numbered 10.x too. If the
+  // ids were not namespaced, one form's answers would overwrite the other's.
+  const both = loadBank(['ta6', 'ta10']);
+  const ids = both.items.map((i) => i.id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(both.byId.get('10.1').form === 'ta6', 'TA6 keeps the bare 10.1');
+  assert.ok(both.byId.get('fc.1').form === 'ta10', 'TA10 is namespaced');
+});
+
+test('a case collecting only TA6 is never asked a TA10 question', () => {
+  const bank = loadBank(['ta6', 'ta10']);
+  const ta6Only = outstanding(bank, {}, { forms: ['ta6'] });
+  assert.equal(ta6Only.some((i) => i.form === 'ta10'), false);
+  const both = outstanding(bank, {}, { forms: ['ta6', 'ta10'] });
+  assert.ok(both.length > ta6Only.length);
+});
+
+test('every TA10 checklist row has a key and a label', () => {
+  const bank = loadBank(['ta10']);
+  for (const q of bank.questions.filter((x) => x.t === 'checklist')) {
+    assert.ok(q.rows?.length, `${q.id} has no rows`);
+    assert.equal(q.opts?.length, 3, `${q.id} should offer stays / taking / not there`);
+    const keys = q.rows.map((r) => r.k);
+    assert.equal(new Set(keys).size, keys.length, `${q.id} has duplicate row keys`);
+    for (const r of q.rows) assert.ok(r.label, `${q.id} row ${r.k} has no label`);
+  }
+});

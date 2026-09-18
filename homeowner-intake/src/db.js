@@ -4,8 +4,35 @@ const SCHEMA = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+-- One row per conveyancing firm. Everything else hangs off this: a fee earner
+-- must never see another firm's files, and the seller must see their own
+-- solicitor's name on every message, not ours.
+CREATE TABLE IF NOT EXISTS firms (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE,
+  brand TEXT,                            -- JSON: colour, fromName, replyTo, signOff
+  wa_phone_id TEXT,                      -- a firm may send from its own number
+  sms_sender TEXT,
+  email_from TEXT,
+  created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE TABLE IF NOT EXISTS staff (
+  id TEXT PRIMARY KEY,
+  firm_id TEXT NOT NULL REFERENCES firms(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  name TEXT,
+  role TEXT DEFAULT 'fee_earner',        -- fee_earner | admin
+  key_hash TEXT NOT NULL,
+  last_seen_at TEXT,
+  created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
 CREATE TABLE IF NOT EXISTS cases (
   id TEXT PRIMARY KEY,
+  firm_id TEXT REFERENCES firms(id) ON DELETE CASCADE,
+  owner_id TEXT REFERENCES staff(id),
   ref TEXT,
   address TEXT,
   postcode TEXT,
@@ -115,13 +142,27 @@ CREATE TABLE IF NOT EXISTS events (
   at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
+CREATE INDEX IF NOT EXISTS idx_cases_firm ON cases(firm_id, status);
+CREATE INDEX IF NOT EXISTS idx_staff_firm ON staff(firm_id);
 CREATE INDEX IF NOT EXISTS idx_answers_case ON answers(case_id);
 CREATE INDEX IF NOT EXISTS idx_outbox_due ON outbox(sent_at, send_after);
 CREATE INDEX IF NOT EXISTS idx_history_case ON answer_history(case_id, item_id);
 `;
 
+// Columns added after a database already existed. A prototype does not need a
+// migration framework, but it does need to not lose someone's data.
+const ADDED_COLUMNS = [
+  ['cases', 'firm_id', 'TEXT'],
+  ['cases', 'owner_id', 'TEXT'],
+  ['cases', 'forms', 'TEXT'],
+];
+
 export function openDb(path = ':memory:') {
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    const existing = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+    if (!existing.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
   return db;
 }

@@ -1,6 +1,6 @@
 // The drip engine. A seller never sees "180 questions" - they see the two or
 // three that fit the time they have right now.
-import { outstanding, isApplicable, isAnswered } from './questions.js';
+import { outstanding, isApplicable, isAnswered, inForms } from './questions.js';
 
 export const DEFAULT_PLAN = {
   mode: 'count',      // 'count' | 'time'
@@ -47,7 +47,7 @@ function buildContext(bank, answers, opts = {}) {
 
 function askable(bank, answers, opts) {
   const ctx = buildContext(bank, answers, opts);
-  const pool = outstanding(bank, answers, { track: opts.track ?? 'form' }).filter((i) => {
+  const pool = outstanding(bank, answers, { track: opts.track ?? 'form', forms: opts.forms ?? null }).filter((i) => {
     const a = answers[i.id];
     if (a?.status === 'parked') return ctx.parkedUntilPassed.has(i.id);
     return true;
@@ -100,8 +100,8 @@ export function nextItem(bank, answers, session = {}) {
 }
 
 // Honest estimate for the seller: "about 12 sessions left at 3 a day".
-export function forecast(bank, answers, plan = DEFAULT_PLAN, cadencePerDay = 1) {
-  const pool = outstanding(bank, answers, { track: 'form' });
+export function forecast(bank, answers, plan = DEFAULT_PLAN, cadencePerDay = 1, { forms = null } = {}) {
+  const pool = outstanding(bank, answers, { track: 'form', forms });
   const seconds = pool.reduce((a, i) => a + (i.secs ?? 30), 0);
   const perSession = plan.mode === 'count'
     ? pool.slice(0, plan.size).reduce((a, i) => a + (i.secs ?? 30), 0) || 1
@@ -116,8 +116,8 @@ export function forecast(bank, answers, plan = DEFAULT_PLAN, cadencePerDay = 1) 
 }
 
 // What the seller still has to dig out of a drawer, as its own to-do list.
-export function paperworkList(bank, answers) {
-  return bank.items
+export function paperworkList(bank, answers, { forms = null } = {}) {
+  return inForms(bank.items, forms)
     .filter((i) => i.track === 'paperwork' && isApplicable(i, answers))
     .map((i) => ({
       id: i.id,

@@ -1,11 +1,21 @@
-import { randomUUID } from 'node:crypto';
-import { loadBank, progress } from './questions.js';
+import { randomUUID, randomBytes, createHash } from 'node:crypto';
+import { loadBank, progress, DEFAULT_FORMS } from './questions.js';
 import { issueLink } from './magiclink.js';
 import { DEFAULT_CADENCE } from './scheduler.js';
 import { DEFAULT_PLAN } from './batching.js';
 
 const json = (v) => (v === undefined ? null : JSON.stringify(v));
 const unjson = (v) => (v == null ? null : JSON.parse(v));
+const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
+
+export const DEFAULT_BRAND = {
+  colour: '#1f5f8b',
+  fromName: null,        // falls back to the firm name
+  replyTo: null,
+  signOff: null,         // e.g. "Rachel at Example & Co"
+};
+
+const hashKey = (key) => createHash('sha256').update(key).digest('hex');
 
 export class Store {
   constructor(db, bank = loadBank()) {
@@ -13,12 +23,80 @@ export class Store {
     this.bank = bank;
   }
 
-  createCase({ ref, address, postcode, uprn, firm, deadline } = {}) {
+  // ---- firms and staff ---------------------------------------------------
+
+  createFirm({ name, brand, waPhoneId, smsSender, emailFrom } = {}) {
     const id = randomUUID();
+    let slug = slugify(name);
+    if (this.db.prepare('SELECT 1 FROM firms WHERE slug = ?').get(slug)) slug = `${slug}-${id.slice(0, 4)}`;
     this.db.prepare(
-      `INSERT INTO cases (id, ref, address, postcode, uprn, firm, deadline) VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(id, ref ?? null, address ?? null, postcode ?? null, uprn ?? null, firm ?? null, deadline ?? null);
-    this.event(id, 'case_created', { ref, address });
+      `INSERT INTO firms (id, name, slug, brand, wa_phone_id, sms_sender, email_from) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, name, slug, json({ ...DEFAULT_BRAND, ...(brand ?? {}) }), waPhoneId ?? null, smsSender ?? null, emailFrom ?? null);
+    return this.getFirm(id);
+  }
+
+  getFirm(id) {
+    const row = this.db.prepare('SELECT * FROM firms WHERE id = ?').get(id);
+    return row ? { ...row, brand: unjson(row.brand) } : null;
+  }
+
+  firmByName(name) {
+    const row = this.db.prepare('SELECT id FROM firms WHERE name = ? OR slug = ?').get(name, slugify(name));
+    return row ? this.getFirm(row.id) : null;
+  }
+
+  /** Convenience for the API and tests: name a firm and get it, creating on first use. */
+  ensureFirm(name, extra = {}) {
+    return this.firmByName(name) ?? this.createFirm({ name, ...extra });
+  }
+
+  /** The firm whose name and voice the seller sees on every message. */
+  brandFor(caseId) {
+    const c = this.getCase(caseId);
+    const firm = c?.firm_id ? this.getFirm(c.firm_id) : null;
+    const name = firm?.name ?? c?.firm ?? 'your solicitor';
+    return {
+      firmName: name,
+      fromName: firm?.brand?.fromName ?? name,
+      signOff: firm?.brand?.signOff ?? name,
+      colour: firm?.brand?.colour ?? DEFAULT_BRAND.colour,
+      replyTo: firm?.brand?.replyTo ?? null,
+      waPhoneId: firm?.wa_phone_id ?? null,
+      smsSender: firm?.sms_sender ?? null,
+      emailFrom: firm?.email_from ?? null,
+    };
+  }
+
+  /** Staff keys are hashed like passwords; the plaintext is shown exactly once. */
+  addStaff(firmId, { email, name, role = 'fee_earner' } = {}) {
+    const id = randomUUID();
+    const key = `hi_${randomBytes(24).toString('base64url')}`;
+    this.db.prepare(
+      `INSERT INTO staff (id, firm_id, email, name, role, key_hash) VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(id, firmId, email, name ?? null, role, hashKey(key));
+    return { id, firmId, email, name, role, key };
+  }
+
+  staffByKey(key) {
+    if (!key) return null;
+    const row = this.db.prepare('SELECT * FROM staff WHERE key_hash = ?').get(hashKey(key));
+    if (!row) return null;
+    this.db.prepare(`UPDATE staff SET last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`).run(row.id);
+    return row;
+  }
+
+  // ---- cases -------------------------------------------------------------
+
+  createCase({ ref, address, postcode, uprn, firm, firmId, ownerId, deadline, forms } = {}) {
+    const id = randomUUID();
+    const resolvedFirmId = firmId ?? (firm ? this.ensureFirm(firm).id : null);
+    const firmName = resolvedFirmId ? this.getFirm(resolvedFirmId).name : (firm ?? null);
+    this.db.prepare(
+      `INSERT INTO cases (id, firm_id, owner_id, ref, address, postcode, uprn, firm, deadline, forms)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, resolvedFirmId, ownerId ?? null, ref ?? null, address ?? null, postcode ?? null, uprn ?? null, firmName, deadline ?? null,
+      json(forms?.length ? forms : DEFAULT_FORMS));
+    this.event(id, 'case_created', { ref, address, firmId: resolvedFirmId });
     return this.getCase(id);
   }
 
@@ -26,8 +104,23 @@ export class Store {
     return this.db.prepare('SELECT * FROM cases WHERE id = ?').get(id);
   }
 
-  listCases() {
-    return this.db.prepare('SELECT * FROM cases ORDER BY created_at DESC').all();
+  /**
+   * Always pass firmId from a staff session. Omitting it returns every case,
+   * which is only ever correct for the background worker.
+   */
+  listCases({ firmId = null, status = null } = {}) {
+    const where = [];
+    const args = [];
+    if (firmId) { where.push('firm_id = ?'); args.push(firmId); }
+    if (status) { where.push('status = ?'); args.push(status); }
+    const sql = `SELECT * FROM cases ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at DESC`;
+    return this.db.prepare(sql).all(...args);
+  }
+
+  /** Guards a case against the firm of whoever is asking. */
+  caseBelongsTo(caseId, firmId) {
+    const c = this.getCase(caseId);
+    return !!c && !!firmId && c.firm_id === firmId;
   }
 
   addParticipant(caseId, { role = 'seller', name, email, phone, whatsappOptIn = false, cadence, plan } = {}) {
@@ -127,8 +220,20 @@ export class Store {
     return this.db.prepare('SELECT * FROM attachments WHERE case_id = ? ORDER BY uploaded_at').all(caseId);
   }
 
+  /** Which forms this case is collecting - TA6 always, TA10 when asked for. */
+  formsFor(caseId) {
+    const c = this.getCase(caseId);
+    return unjson(c?.forms) ?? DEFAULT_FORMS;
+  }
+
+  setForms(caseId, forms) {
+    this.db.prepare('UPDATE cases SET forms = ? WHERE id = ?').run(json(forms), caseId);
+    this.event(caseId, 'forms_changed', { forms });
+    return this.formsFor(caseId);
+  }
+
   progress(caseId) {
-    return progress(this.bank, this.answers(caseId));
+    return progress(this.bank, this.answers(caseId), { forms: this.formsFor(caseId) });
   }
 
   queue(caseId, participantId, { channel, kind, payload, sendAfter = new Date() }) {
@@ -171,6 +276,14 @@ export class Store {
       `SELECT id FROM participants WHERE replace(replace(replace(phone,' ',''),'+',''),'-','') LIKE ?
        ORDER BY last_activity_at DESC LIMIT 1`
     ).get(`%${digits}`);
+    return row ? this.getParticipant(row.id) : null;
+  }
+
+  participantByEmail(email) {
+    if (!email) return null;
+    const row = this.db.prepare(
+      'SELECT id FROM participants WHERE lower(email) = lower(?) ORDER BY last_activity_at DESC LIMIT 1'
+    ).get(String(email).trim());
     return row ? this.getParticipant(row.id) : null;
   }
 

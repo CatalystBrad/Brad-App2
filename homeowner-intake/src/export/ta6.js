@@ -1,20 +1,38 @@
 // Turns the collected answers back into something a conveyancer recognises: the
 // TA6 in order, with the audit trail attached and the gaps stated plainly.
-import { isApplicable } from '../questions.js';
+import { isApplicable, inForms } from '../questions.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-const fmt = (v) => (v == null ? '' : Array.isArray(v) ? v.join('; ') : typeof v === 'object' ? Object.entries(v).map(([k, x]) => `${k}: ${x}`).join('; ') : String(v));
+const fmt = (v, item = null) => {
+  if (v == null) return '';
+  if (Array.isArray(v)) return v.join('; ');
+  if (typeof v !== 'object') return String(v);
+  // A TA10 checklist: show the label the seller saw, not the storage key.
+  if (item?.t === 'checklist') {
+    const labels = new Map((item.rows ?? []).map((r) => [r.k, r.label]));
+    return Object.entries(v)
+      .map(([k, entry]) => {
+        const status = entry?.status ?? entry;
+        const price = entry?.price ? ` (would sell for ${entry.price})` : '';
+        return `${labels.get(k) ?? k}: ${status}${price}`;
+      })
+      .join('; ');
+  }
+  return Object.entries(v).map(([k, x]) => `${k}: ${x}`).join('; ');
+};
 
 export function buildExport(store, caseId) {
   const c = store.getCase(caseId);
   const answers = store.answers(caseId);
   const sellers = store.sellers(caseId);
   const attachments = store.attachments(caseId);
+  const forms = store.formsFor(caseId);
+  const scopedItems = inForms(store.bank.items, forms);
   const sections = [];
 
-  for (const section of store.bank.sections) {
+  for (const section of inForms(store.bank.sections, forms)) {
     const rows = [];
-    for (const item of store.bank.items) {
+    for (const item of scopedItems) {
       if (item.s !== section.id) continue;
       if (!isApplicable(item, answers)) continue;
       const a = answers[item.id];
@@ -22,8 +40,9 @@ export function buildExport(store, caseId) {
         id: item.id,
         number: item.n,
         kind: item.kind,
+        track: item.track ?? 'form',
         question: item.q,
-        answer: a ? fmt(a.value) : null,
+        answer: a ? fmt(a.value, item) : null,
         status: a?.status ?? 'unanswered',
         source: a?.source ?? null,
         attachments: attachments.filter((f) => f.item_id === item.id).map((f) => f.filename),
@@ -32,17 +51,28 @@ export function buildExport(store, caseId) {
     if (rows.length) sections.push({ ...section, rows });
   }
 
-  const outstanding = sections.flatMap((s) => s.rows.filter((r) => r.status === 'unanswered' || r.status === 'parked')
+  const isOutstanding = (r) => r.status === 'unanswered' || r.status === 'parked' || r.status === 'prefilled';
+  // Questions and paperwork are chased differently, so they are counted
+  // differently. Lumping them together makes a form that is fully answered
+  // look unanswered, which is how a chase list loses a reader's trust.
+  const outstanding = sections.flatMap((s) => s.rows
+    .filter((r) => r.track === 'form' && isOutstanding(r))
     .map((r) => ({ section: s.title, number: r.number, question: r.question, status: r.status })));
+  const documentsOutstanding = sections.flatMap((s) => s.rows
+    .filter((r) => r.track === 'paperwork' && isOutstanding(r))
+    .map((r) => ({ section: s.title, number: r.number, document: r.question, status: r.status })));
 
+  const formMeta = store.bank.forms.filter((f) => forms.includes(f.id));
   return {
-    form: store.bank.form,
-    edition: store.bank.edition,
+    forms: formMeta,
+    form: formMeta.map((f) => f.form).join(' + '),
+    edition: formMeta.map((f) => f.edition).join(' · '),
     case: { ref: c.ref, address: c.address, postcode: c.postcode, uprn: c.uprn, status: c.status, signedAt: c.signed_at },
     sellers: sellers.map((s) => ({ name: s.name, signedAt: s.signed_at })),
     progress: store.progress(caseId),
     sections,
     outstanding,
+    documentsOutstanding,
     attachments: attachments.map((f) => ({ itemId: f.item_id, filename: f.filename, uploadedAt: f.uploaded_at })),
     // The reason this whole thing is defensible: who said what, when, from where.
         auditTrail: store.history(caseId).map((h) => ({
@@ -107,11 +137,15 @@ ${data.sections.map((s) => `<h2>${esc(s.n)}. ${esc(s.title)}</h2>
 
 /** The chase list a conveyancer actually wants in their inbox. */
 export function toChaseList(data) {
+  const signed = data.sellers.length > 0 && data.sellers.every((s) => s.signedAt);
   return {
     address: data.case.address,
     percent: data.progress.percent,
     blocking: data.outstanding,
-    documentsOutstanding: data.progress.paperworkOutstanding,
-    readyToSend: data.outstanding.length === 0 && data.sellers.every((s) => s.signedAt),
+    documentsOutstanding: data.documentsOutstanding.length,
+    signed,
+    // A form whose promised certificates never arrived is not ready to go to a
+    // buyer, however complete the answers look.
+    readyToSend: data.outstanding.length === 0 && data.documentsOutstanding.length === 0 && signed,
   };
 }

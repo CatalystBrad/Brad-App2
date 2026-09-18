@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Case files</title>
+<link rel="stylesheet" href="/staff/staff.css">
+</head>
+<body>
+
+<div id="signin" class="signin">
+  <div class="panel">
+    <h1>Case files</h1>
+    <p class="muted">Paste your staff key to see your firm's files.</p>
+    <input type="password" id="key" placeholder="hi_…" autocomplete="off" spellcheck="false">
+    <button class="primary" id="signinBtn" type="button">Open</button>
+    <p class="muted small" id="signinError"></p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="wrap bar">
+      <div>
+        <div class="firm" id="firmName"></div>
+        <h1>Case files</h1>
+      </div>
+      <div class="barActions">
+        <button class="ghost" id="refreshBtn" type="button">Refresh</button>
+        <button class="ghost" id="signoutBtn" type="button">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="counts" id="counts"></div>
+    <div class="filters" id="filters">
+      <button type="button" data-filter="all" aria-pressed="true">All</button>
+      <button type="button" data-filter="action">Needs action</button>
+      <button type="button" data-filter="watch">Watch</button>
+      <button type="button" data-filter="ok">Progressing</button>
+      <button type="button" data-filter="done">Done</button>
+    </div>
+    <div id="list" class="list"></div>
+    <p class="muted small" id="empty" class="hidden"></p>
+  </main>
+</div>
+
+<dialog id="detail">
+  <div class="detailHead">
+    <div>
+      <div class="muted small" id="dRef"></div>
+      <h2 id="dAddress"></h2>
+    </div>
+    <button class="ghost" id="closeDetail" type="button">Close</button>
+  </div>
+  <div id="dBody"></div>
+</dialog>
+
+<div id="toast" class="toast"></div>
+<script src="/staff/staff.js" type="module"></script>
+</body>
+</html>

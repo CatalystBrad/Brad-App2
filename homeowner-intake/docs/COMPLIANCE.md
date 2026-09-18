@@ -2,11 +2,17 @@
 
 Not legal advice — a checklist of what needs a decision before launch.
 
-## TA6 copyright and licensing
+## TA6 and TA10 copyright and licensing
 
-The TA6 Property Information Form is © The Law Society. The question set,
-numbering and structure are their intellectual property. Commercial products that
-reproduce TA6 do so under licence. **Secure that licence before this goes live.**
+The TA6 Property Information Form and the TA10 Fittings and Contents Form are
+© The Law Society. The question sets, numbering and structure are their
+intellectual property. Commercial products that reproduce them do so under
+licence. **Secure that licence before this goes live.**
+
+Selling this to other firms is a different licence from using it on your own
+files — raise that explicitly when you approach them, because a licence granted
+for internal use will not cover resale, and finding that out after the first
+customer signs is expensive.
 
 Practical consequences for the build:
 
@@ -44,6 +50,42 @@ TA6 is not a deed, so a simple electronic signature is sufficient. What matters
 evidentially is the trail, which the system keeps: who confirmed, when, from
 which IP and channel, against which version of the answers. The rule that
 changing an answer after sign-off un-signs the form is there for the same reason.
+
+## SMS
+
+- **Opt-out is regulated, not optional.** `STOP` must work, immediately and
+  permanently. In `src/channels/replies.js`, `STOP`, `END`, `QUIT` and
+  `UNSUBSCRIBE` all map to opt-out and can never be read as "skip this question".
+- Messages must identify the sender. The firm's name is in the opener; keep it
+  there.
+- Sender IDs must be registered with the provider. An alphanumeric sender ID
+  cannot receive replies, so use a long number or short code — this channel is
+  two-way.
+- Cost is per segment. The adapter keeps every message to at most two segments
+  and strips curly quotes and dashes, which silently halve the characters per
+  segment.
+
+## Email
+
+- The digest carries a magic link, so treat it as credential-bearing: no
+  forwarding-friendly wording, and the link expires in 30 days.
+- Include a plain way to stop receiving them. The current wording invites a reply
+  asking to be phoned instead; if volume grows, add a one-click unsubscribe.
+- Everything a firm or a seller supplied is HTML-escaped before it reaches the
+  template.
+
+## Staff access
+
+- Staff keys are bearer tokens, hashed with SHA-256 at rest and shown exactly
+  once on creation. Treat them like passwords: no sharing, and revoke by deleting
+  the row.
+- The prototype stores the key in the browser's `localStorage`. Before a firm
+  relies on this, move staff to proper sessions with expiry, and add
+  two-factor authentication — these keys open every seller's file in the firm.
+- `ADMIN_KEY` creates firms. It belongs in a secret manager, not in a deploy
+  script.
+- Case access is checked on every request against the caller's firm, and a
+  mismatch returns 404 rather than 403.
 
 ## WhatsApp Business policy
 

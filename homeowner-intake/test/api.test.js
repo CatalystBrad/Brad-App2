@@ -1,13 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/server.js';
-import * as wa from '../src/channels/whatsapp.js';
+import { createDispatcher } from '../src/channels/index.js';
 
 async function listen() {
-  const app = createApp({ sender: wa.createSender({}) });
+  const app = createApp({ sender: createDispatcher() });
   await new Promise((r) => app.server.listen(0, r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   return { app, base, close: () => new Promise((r) => app.server.close(r)) };
+}
+
+/** Bootstraps a firm and returns headers a fee earner would send. */
+async function onboard(base, name = 'Example & Co') {
+  const res = await fetch(`${base}/api/firms`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer dev-admin-key' },
+    body: JSON.stringify({ name, brand: { colour: '#0F6E5C', signOff: 'Rachel' }, admin: { email: 'rachel@example.test', name: 'Rachel' } }),
+  });
+  const body = await res.json();
+  return { firm: body.firm, key: body.staff.key, headers: { authorization: `Bearer ${body.staff.key}` } };
 }
 
 const jsonFetch = async (base, path, opts = {}) => {
@@ -20,11 +31,14 @@ test('the API serves a full seller journey over HTTP', async (t) => {
   const { base, close } = await listen();
   t.after(close);
 
+  const { headers: staffHeaders } = await onboard(base);
+
   // A conveyancer opens a case; prefill runs; a magic link comes back.
   const created = await jsonFetch(base, '/api/cases', {
     method: 'POST',
+    headers: staffHeaders,
     body: JSON.stringify({
-      ref: 'CAT/2026/001', address: '12 Example Street, Leeds', postcode: 'LS1 1AA', firm: 'Catalyst Services',
+      ref: 'CAT/2026/001', address: '12 Example Street, Leeds', postcode: 'LS1 1AA',
       seller: { name: 'Sam Okafor', phone: '447700900123', whatsappOptIn: true },
       plan: { mode: 'count', size: 2 },
       cadence: { window: { start: '00:00', end: '23:59' } },
@@ -99,12 +113,86 @@ test('the API serves a full seller journey over HTTP', async (t) => {
 
   // The conveyancer's views.
   const caseId = created.body.caseId;
-  const html = await jsonFetch(base, `/api/cases/${caseId}/export.html`);
+  const html = await jsonFetch(base, `/api/cases/${caseId}/export.html`, { headers: staffHeaders });
   assert.equal(html.status, 200);
   assert.match(html.body, /TA6 Property Information/);
-  const chase = await jsonFetch(base, '/api/cases');
+  const chase = await jsonFetch(base, '/api/cases', { headers: staffHeaders });
   assert.equal(chase.body.cases[0].readyToSend, false);
-  assert.ok(chase.body.cases[0].blocking.length > 0);
+  assert.ok(chase.body.cases[0].blocking > 0);
+  assert.ok(chase.body.cases[0].attention.label, 'every file should say what to do about it');
+});
+
+test('a firm sees only its own files', async (t) => {
+  const { base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base, 'Firm A');
+  const b = await onboard(base, 'Firm B');
+
+  const mine = await jsonFetch(base, '/api/cases', {
+    method: 'POST', headers: a.headers,
+    body: JSON.stringify({ ref: 'A/1', address: '1 A Street', seller: { name: 'Seller A', phone: '447700900001' } }),
+  });
+  assert.equal(mine.status, 201);
+
+  // Firm B's list must not contain it.
+  const theirList = await jsonFetch(base, '/api/cases', { headers: b.headers });
+  assert.equal(theirList.body.cases.length, 0);
+
+  // Nor may Firm B open it by guessing the id - and the answer is 404, not 403,
+  // so the reference is not confirmed to exist.
+  for (const path of [`/api/cases/${mine.body.caseId}`, `/api/cases/${mine.body.caseId}/export.json`]) {
+    assert.equal((await jsonFetch(base, path, { headers: b.headers })).status, 404, path);
+  }
+  assert.equal((await jsonFetch(base, `/api/cases/${mine.body.caseId}/nudge`, { method: 'POST', headers: b.headers })).status, 404);
+
+  // Firm A can.
+  assert.equal((await jsonFetch(base, `/api/cases/${mine.body.caseId}`, { headers: a.headers })).status, 200);
+});
+
+test('conveyancer endpoints refuse a missing or wrong key', async (t) => {
+  const { base, close } = await listen();
+  t.after(close);
+  await onboard(base);
+  assert.equal((await jsonFetch(base, '/api/cases')).status, 401);
+  assert.equal((await jsonFetch(base, '/api/cases', { headers: { authorization: 'Bearer hi_madeup' } })).status, 401);
+  assert.equal((await jsonFetch(base, '/api/firms', { method: 'POST', body: JSON.stringify({ name: 'Sneaky' }) })).status, 401);
+});
+
+test('a staff key is stored only as a hash, and only an admin can mint more', async (t) => {
+  const { app, base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base);
+  const rows = app.store.db.prepare('SELECT key_hash FROM staff').all();
+  assert.ok(rows.every((r) => !r.key_hash.startsWith('hi_')), 'plaintext key must not be stored');
+
+  const colleague = await jsonFetch(base, '/api/staff', {
+    method: 'POST', headers: a.headers, body: JSON.stringify({ email: 'sam@example.test', name: 'Sam', role: 'fee_earner' }),
+  });
+  assert.equal(colleague.status, 201);
+  assert.match(colleague.body.staff.key, /^hi_/);
+
+  // A fee earner cannot mint keys.
+  const denied = await jsonFetch(base, '/api/staff', {
+    method: 'POST', headers: { authorization: `Bearer ${colleague.body.staff.key}` }, body: JSON.stringify({ email: 'x@y.z' }),
+  });
+  assert.equal(denied.status, 403);
+});
+
+test('the firm brand reaches the seller, not ours', async (t) => {
+  const { app, base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base, 'Hardcastle & Byrne');
+  const created = await jsonFetch(base, '/api/cases', {
+    method: 'POST', headers: a.headers,
+    body: JSON.stringify({
+      address: '3 Brand Road', seller: { name: 'Jo', phone: '447700900777', whatsappOptIn: true },
+      cadence: { window: { start: '00:00', end: '23:59' } },
+    }),
+  });
+  await jsonFetch(base, `/api/cases/${created.body.caseId}/invite`, { method: 'POST', headers: a.headers });
+  const sent = app.sender.lastTo('whatsapp');
+  const params = sent.template.components[0].parameters.map((p) => p.text);
+  assert.ok(params.includes('Hardcastle & Byrne'), `firm name missing from invite: ${JSON.stringify(params)}`);
 });
 
 test('an expired or forged magic link gets a human-readable page, not a stack trace', async (t) => {
@@ -131,8 +219,9 @@ test('the WhatsApp webhook verifies, then drives the conversation', async (t) =>
   assert.equal(await verify.text(), 'abc123');
   assert.equal((await fetch(`${base}/webhooks/whatsapp?hub.verify_token=wrong`)).status, 403);
 
+  const a = await onboard(base);
   await jsonFetch(base, '/api/cases', {
-    method: 'POST',
+    method: 'POST', headers: a.headers,
     body: JSON.stringify({
       ref: 'CAT/2026/002', address: '9 Test Road', postcode: 'LS2 2BB',
       seller: { name: 'Ada', phone: '447700900999', whatsappOptIn: true },
@@ -148,6 +237,30 @@ test('the WhatsApp webhook verifies, then drives the conversation', async (t) =>
   assert.equal(post.status, 200);
   await new Promise((r) => setTimeout(r, 120));   // the webhook is acknowledged before processing
   assert.ok(app.sender.sent.length > before, 'inbound message should have produced a reply');
+});
+
+test('the SMS webhook drives the same conversation', async (t) => {
+  const { app, base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base);
+  await jsonFetch(base, '/api/cases', {
+    method: 'POST', headers: a.headers,
+    body: JSON.stringify({
+      ref: 'SMS/1', address: '4 Text Lane',
+      seller: { name: 'Pat', phone: '447700900444' },
+      cadence: { channel: 'sms', window: { start: '00:00', end: '23:59' } },
+    }),
+  });
+  const before = app.sender.sent.length;
+  const res = await fetch(`${base}/webhooks/sms`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ From: '+447700900444', Body: 'GO', MessageSid: 'SM1', NumMedia: '0' }),
+  });
+  assert.equal(res.status, 200);
+  await new Promise((r) => setTimeout(r, 120));
+  assert.ok(app.sender.sent.length > before, 'an inbound text should produce a reply');
+  assert.equal(app.sender.sent.at(-1).channel, 'sms');
 });
 
 test('health and static serving work', async (t) => {

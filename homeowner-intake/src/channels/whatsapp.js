@@ -9,6 +9,19 @@
 //     outside that window an approved template must open the thread
 // Anything that does not fit becomes a one-line message with a magic link into
 // the web app, which is why both channels share one question bank.
+import {
+  PARK_TITLE, CONFIRM_YES, CONFIRM_NO, HELP_HINT, COMMANDS,
+  formatPrefill, interpretText, clarifyMessage, menuMessage,
+} from './replies.js';
+
+export {
+  PARK_TITLE, CONFIRM_YES, CONFIRM_NO, HELP_HINT, COMMANDS,
+  formatPrefill, interpretText, clarifyMessage, menuMessage,
+};
+
+export const name = 'whatsapp';
+export const style = 'conversational';
+
 export const LIMITS = {
   buttons: 3,
   buttonTitle: 20,
@@ -20,12 +33,6 @@ export const LIMITS = {
 
 const clip = (s, n) => (s == null ? '' : String(s).length <= n ? String(s) : `${String(s).slice(0, n - 1)}…`);
 
-export const PARK_TITLE = "I'll check";
-// A pre-filled answer is a yes/no confirmation whatever the underlying field
-// type: the whole point is that it costs one tap.
-export const CONFIRM_YES = "That's right";
-export const CONFIRM_NO = 'Not quite';
-export const HELP_HINT = 'Reply MENU to change how often I ask, PAUSE to stop for a bit, or HELP.';
 
 /**
  * Renders one question into a WhatsApp send payload.
@@ -62,14 +69,14 @@ export function renderQuestion(item, { to, webLink, progress, prefilled } = {}) 
 
   // Free text, uploads and anything with a long option list are better in the
   // web app - we hand over rather than degrade.
-  const freeText = ['text', 'longtext', 'address', 'service_block'].includes(item.t);
-  if (item.t === 'upload' || item.t === 'service_block') {
+  const freeText = ['text', 'longtext', 'address', 'service_block', 'checklist'].includes(item.t);
+  if (item.t === 'upload' || item.t === 'service_block' || item.t === 'checklist') {
     return {
       mode: 'web_handoff',
       payload: {
         ...base,
         type: 'text',
-        text: { preview_url: false, body: clip(`${item.t === 'upload' ? '📎 ' : ''}${item.q}\n\n${item.t === 'upload' ? 'Send a photo straight back to this chat, or open: ' : 'Quicker on a screen: '}${webLink}`, LIMITS.body) },
+        text: { preview_url: false, body: clip(`${item.t === 'upload' ? '📎 ' : ''}${item.q}\n\n${item.t === 'upload' ? 'Send a photo straight back to this chat, or open: ' : item.t === 'checklist' ? `A list of ${item.rows?.length ?? 'a few'} - much faster to tap through on a screen: ` : 'Quicker on a screen: '}${webLink}`, LIMITS.body) },
       },
     };
   }
@@ -123,13 +130,6 @@ export function renderQuestion(item, { to, webLink, progress, prefilled } = {}) 
   };
 }
 
-export function formatPrefill(value) {
-  if (value == null) return '';
-  if (Array.isArray(value)) return value.join(', ');
-  if (typeof value === 'object') return Object.values(value).filter(Boolean).join(', ');
-  return String(value);
-}
-
 function optionsFor(item) {
   if (item.t === 'yesno') return ['Yes', 'No', PARK_TITLE];
   if (item.t === 'choice' && item.opts) return item.opts.length < LIMITS.buttons ? [...item.opts, PARK_TITLE] : item.opts;
@@ -170,6 +170,23 @@ export const TEMPLATES = {
     example: 'Hi {{1}}, your buyer is waiting on {{2}} answers to exchange. Can we finish them this week?',
   },
 };
+
+/** Plain text on the seller's thread. Part of the uniform channel interface. */
+export const renderText = (text, { to } = {}) => ({
+  messaging_product: 'whatsapp',
+  to,
+  type: 'text',
+  text: { preview_url: true, body: clip(text, LIMITS.body) },
+});
+
+/** Outside the 24-hour customer window only an approved template may be sent. */
+export const needsOpener = (lastInboundAt, now = new Date()) =>
+  !lastInboundAt || (now - new Date(lastInboundAt)) / 3600000 >= 24;
+
+export const renderOpener = (kind, { to, brand, progress, caseRecord } = {}) =>
+  renderTemplate(kind, kind === 'invite'
+    ? [brand?.sellerName ?? 'there', brand?.fromName ?? 'your solicitor', caseRecord?.address ?? 'your property']
+    : [brand?.sellerName ?? 'there', String(progress?.answered ?? 0)], to);
 
 export function renderTemplate(name, params, to) {
   const tpl = TEMPLATES[name];
@@ -212,67 +229,6 @@ export function parseInbound(webhookBody) {
   }
   return out;
 }
-
-export const COMMANDS = {
-  MENU: 'menu', SETTINGS: 'menu',
-  PAUSE: 'pause', STOP: 'pause', SNOOZE: 'pause',
-  SKIP: 'park', LATER: 'park', "I'LL CHECK": 'park', 'ILL CHECK': 'park', 'DONT KNOW': 'unknown', "DON'T KNOW": 'unknown', DK: 'unknown',
-  HELP: 'help',
-  MORE: 'more', GO: 'more', NEXT: 'more', YES: null,
-  STOPALL: 'optout', UNSUBSCRIBE: 'optout',
-};
-
-/**
- * Interprets a free-text reply in the context of the question that was asked.
- * Returns an action the caller applies - never guesses a legal answer from
- * something ambiguous, because a wrong answer on a TA6 is a claim waiting to
- * happen.
- */
-export function interpretText(text, askedItem) {
-  const raw = String(text ?? '').trim();
-  const upper = raw.toUpperCase();
-  if (COMMANDS[upper]) return { action: COMMANDS[upper] };
-
-  if (!askedItem) return { action: 'unrecognised' };
-
-  const CONFIRM_WORDS = ['CORRECT', 'THATS RIGHT', "THAT'S RIGHT", 'RIGHT', 'CONFIRM', 'CONFIRMED'];
-  if (askedItem.confirmable && CONFIRM_WORDS.includes(upper)) return { action: 'confirm' };
-
-  if (askedItem.t === 'yesno' || askedItem.t === 'choice') {
-    const opts = askedItem.t === 'yesno' ? ['Yes', 'No'] : askedItem.opts ?? [];
-    const exact = opts.find((o) => o.toUpperCase() === upper);
-    if (exact) return { action: 'answer', value: exact };
-    if (['Y', 'YEAH', 'YEP', 'YES PLEASE'].includes(upper)) return { action: 'answer', value: 'Yes' };
-    if (['N', 'NO THANKS', 'NOPE'].includes(upper)) return { action: 'answer', value: 'No' };
-    if (['NOT KNOWN', 'NOT SURE', 'NO IDEA', 'UNSURE'].includes(upper)) {
-      const nk = opts.find((o) => o.toUpperCase().startsWith('NOT KNOWN'));
-      return nk ? { action: 'answer', value: nk } : { action: 'unknown' };
-    }
-    // A number, if they replied "2" to a list.
-    const n = Number(raw);
-    if (Number.isInteger(n) && n >= 1 && n <= opts.length) return { action: 'answer', value: opts[n - 1] };
-    return { action: 'clarify', options: opts };
-  }
-
-  // Only where "Yes" is not one of the form's own options - otherwise it is an
-  // answer, not a confirmation, and guessing wrong puts the wrong thing on a
-  // legal document.
-  if (askedItem.confirmable && ['Y', 'YES'].includes(upper)) return { action: 'confirm' };
-
-  if (['text', 'longtext', 'address', 'year', 'date', 'year_or_unknown', 'date_or_unknown', 'month_year_or_unknown'].includes(askedItem.t)) {
-    if (raw.length === 0) return { action: 'clarify' };
-    return { action: 'answer', value: raw };
-  }
-  return { action: 'web_handoff' };
-}
-
-export function clarifyMessage(options = []) {
-  if (options.length === 0) return "Sorry, I did not follow that. Could you put it another way? Reply HELP if you want a hand.";
-  return `Sorry - I need one of these so it goes on the form correctly:\n${options.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\nOr reply SKIP and I will come back to it.`;
-}
-
-export const menuMessage = (cadence, plan) =>
-  `How I am asking at the moment:\n· ${plan.mode === 'count' ? `${plan.size} questions` : `${Math.round(plan.size / 60)} minutes`} at a time\n· ${String(cadence.frequency).replace(/_/g, ' ')}, between ${cadence.window.start} and ${cadence.window.end}\n\nReply with:\n· a number (1-10) to change how many questions\n· MORNINGS, LUNCHTIME or EVENINGS to change the time\n· DAILY, WEEKLY or EVERY OTHER DAY\n· PAUSE to stop for a week\n· MORE to carry on now`;
 
 // An outbound sender. Real credentials go in env; without them it records what
 // it would have sent, so the whole flow can be demonstrated and tested.

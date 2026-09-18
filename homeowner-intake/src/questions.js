@@ -6,7 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const BANK_PATH = join(here, '..', 'data', 'ta6-questions.json');
+const DATA_DIR = join(here, '..', 'data');
+
+// The forms this system knows. A case says which of them it is collecting.
+export const FORMS = {
+  ta6: { file: 'ta6-questions.json', title: 'Property Information (TA6)' },
+  ta10: { file: 'ta10-questions.json', title: 'Fittings and Contents (TA10)' },
+};
+export const DEFAULT_FORMS = ['ta6'];
 
 export const NEGATIVE_OPTIONS = new Set([
   'None of these',
@@ -16,8 +23,28 @@ export const NEGATIVE_OPTIONS = new Set([
   'No parking',
 ]);
 
-export function loadBank(path = BANK_PATH) {
-  const bank = JSON.parse(readFileSync(path, 'utf8'));
+/**
+ * Loads one or more forms into a single bank. Question ids are unique across
+ * forms, so the drip engine can hold a seller's whole pack at once.
+ */
+export function loadBank(forms = Object.keys(FORMS)) {
+  const ids = Array.isArray(forms) ? forms : [forms];
+  const loaded = ids.map((id) => {
+    const spec = FORMS[id];
+    if (!spec) throw new Error(`unknown form: ${id}`);
+    return { id, ...JSON.parse(readFileSync(join(DATA_DIR, spec.file), 'utf8')) };
+  });
+
+  const sections = loaded.flatMap((f) => f.sections.map((s) => ({ ...s, form: f.id })));
+  const questions = loaded.flatMap((f) => f.questions.map((q) => ({ ...q, form: f.id })));
+  const bank = {
+    forms: loaded.map((f) => ({ id: f.id, form: f.form, edition: f.edition, copyright: f.copyright })),
+    form: loaded[0]?.form,
+    edition: loaded[0]?.edition,
+    sections,
+    questions,
+  };
+
   const items = [];
   for (const q of bank.questions) {
     items.push({ ...q, kind: 'question' });
@@ -26,6 +53,7 @@ export function loadBank(path = BANK_PATH) {
         id: `${q.id}::f`,
         parent: q.id,
         kind: 'followup',
+        form: q.form,
         n: q.n,
         s: q.s,
         t: q.followUp.t,
@@ -41,6 +69,7 @@ export function loadBank(path = BANK_PATH) {
         id: `${q.id}::doc`,
         parent: q.id,
         kind: 'evidence',
+        form: q.form,
         n: q.n,
         s: q.s,
         t: 'upload',
@@ -54,6 +83,16 @@ export function loadBank(path = BANK_PATH) {
       });
     }
   }
+  // Two forms sharing a question id would silently overwrite each other's
+  // answers, so fail loudly at load rather than quietly at export.
+  const seen = new Set();
+  for (const item of items) {
+    if (seen.has(item.id)) {
+      throw new Error(`duplicate question id "${item.id}" across forms ${ids.join(', ')} - ids must be unique bank-wide`);
+    }
+    seen.add(item.id);
+  }
+
   const byId = new Map(items.map((i) => [i.id, i]));
   const sectionOrder = new Map(bank.sections.map((s, i) => [s.id, i]));
   return { ...bank, items, byId, sectionOrder };
@@ -117,18 +156,26 @@ export function isAnswered(answer) {
   return answer.status !== 'parked' && answer.status !== 'prefilled';
 }
 
-export function outstanding(bank, answers, { track = 'form' } = {}) {
-  return bank.items.filter((i) => {
+/** Items belonging to the forms this case is actually collecting. */
+export function inForms(items, forms) {
+  if (!forms) return items;
+  const wanted = new Set(Array.isArray(forms) ? forms : [forms]);
+  return items.filter((i) => wanted.has(i.form));
+}
+
+export function outstanding(bank, answers, { track = 'form', forms = null } = {}) {
+  return inForms(bank.items, forms).filter((i) => {
     if ((i.track ?? 'form') !== track) return false;
     if (isAnswered(answers[i.id])) return false;
     return isApplicable(i, answers);
   });
 }
 
-export function progress(bank, answers) {
-  const applicable = bank.items.filter((i) => isApplicable(i, answers) && (i.track ?? 'form') === 'form');
+export function progress(bank, answers, { forms = null } = {}) {
+  const scope = inForms(bank.items, forms);
+  const applicable = scope.filter((i) => isApplicable(i, answers) && (i.track ?? 'form') === 'form');
   const answered = applicable.filter((i) => isAnswered(answers[i.id]));
-  const paperwork = bank.items.filter((i) => i.track === 'paperwork' && isApplicable(i, answers));
+  const paperwork = scope.filter((i) => i.track === 'paperwork' && isApplicable(i, answers));
   const secondsLeft = applicable
     .filter((i) => !isAnswered(answers[i.id]))
     .reduce((a, i) => a + (i.secs ?? 30), 0);
