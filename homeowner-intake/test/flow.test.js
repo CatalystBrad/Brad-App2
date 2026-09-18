@@ -445,3 +445,43 @@ test('a first ask is never marked as a repeat', async () => {
   const body = sender.sent.at(-1).interactive?.body?.text ?? sender.sent.at(-1).text?.body ?? '';
   assert.equal(/Still on this one/.test(body), false);
 });
+
+test('the export renders a fittings list as a list, not a run of semicolons', () => {
+  const store = new Store(openDb(), bank).configureLinks({ secret: 's', baseUrl: 'https://app.test' });
+  const c = store.createCase({ firm: 'Example & Co', address: '12 Example Street', forms: ['ta6', 'ta10'] });
+  const seller = store.addParticipant(c.id, { name: 'Sam', phone: '447700900123' });
+  store.saveAnswer(c.id, 'fc.2', {
+    value: {
+      fridge: { status: "I'm taking it", price: '£150' },
+      dishwasher: { status: 'Stays' },
+      range: { status: 'Not there' },
+    },
+    by: seller.id,
+  });
+
+  const data = buildExport(store, c.id);
+  const row = data.sections.flatMap((s) => s.rows).find((r) => r.id === 'fc.2');
+  assert.equal(row.checklistRows.length, 3, 'structure should survive to the export');
+  const fridge = row.checklistRows.find((f) => f.label.startsWith('Fridge'));
+  assert.deepEqual(fridge, { label: 'Fridge or fridge-freezer', status: "I'm taking it", price: '£150' });
+  // Order follows the form, not the order the seller happened to tap them.
+  const bankOrder = bank.byId.get('fc.2').rows.map((r) => r.label);
+  const exported = row.checklistRows.map((f) => f.label);
+  assert.deepEqual(exported, bankOrder.filter((l) => exported.includes(l)));
+  // The flat string is still there for the chase list and the JSON export.
+  assert.match(row.answer, /Dishwasher: Stays/);
+
+  const html = toHtml(data);
+  assert.match(html, /<ul class="fittings">/);
+  assert.match(html, /Fridge or fridge-freezer/);
+  assert.match(html, /£150/);
+  // A yes/no answer must not be dragged into the list rendering.
+  const plain = data.sections.flatMap((s) => s.rows).find((r) => r.id === 'fc.10');
+  assert.equal(plain?.checklistRows, null);
+});
+
+test('no two TA10 questions carry the same form number', () => {
+  const ta10 = loadBank(['ta10']);
+  const numbers = ta10.questions.map((q) => q.n);
+  assert.equal(new Set(numbers).size, numbers.length, `duplicate numbering: ${numbers.join(', ')}`);
+});

@@ -3,141 +3,540 @@
   "edition": "Fittings and Contents Form (4th edition)",
   "copyright": "Question structure derived from the Law Society TA10 Fittings and Contents Form. Reproducing TA10 in a commercial product requires a licence from the Law Society - see docs/COMPLIANCE.md.",
   "sections": [
-    { "id": "fc_basic",    "n": "10.1",  "title": "Heating, power and alarms", "blurb": "The fixed things that make the house work." },
-    { "id": "fc_kitchen",  "n": "10.2",  "title": "Kitchen", "blurb": "Appliances and units." },
-    { "id": "fc_bathroom", "n": "10.3",  "title": "Bathrooms", "blurb": "Fittings in every bathroom and cloakroom." },
-    { "id": "fc_carpets",  "n": "10.4",  "title": "Carpets and floor coverings", "blurb": "Room by room." },
-    { "id": "fc_curtains", "n": "10.5",  "title": "Curtains, blinds and rails", "blurb": "What comes down and what stays up." },
-    { "id": "fc_lights",   "n": "10.6",  "title": "Light fittings", "blurb": "Fittings, shades and bulbs." },
-    { "id": "fc_fitted",   "n": "10.7",  "title": "Fitted units and shelving", "blurb": "Built-in storage." },
-    { "id": "fc_outdoor",  "n": "10.8",  "title": "Garden and outside", "blurb": "Sheds, plants, furniture and bins." },
-    { "id": "fc_tv",       "n": "10.9",  "title": "TV, phone and internet", "blurb": "Aerials, dishes and handsets." },
-    { "id": "fc_fuel",     "n": "10.10", "title": "Stock of fuel", "blurb": "Only if you have a tank or a log store." },
-    { "id": "fc_other",    "n": "10.11", "title": "Anything else", "blurb": "Whatever the list has not covered." }
+    {
+      "id": "fc_basic",
+      "n": "10.1",
+      "title": "Heating, power and alarms",
+      "blurb": "The fixed things that make the house work."
+    },
+    {
+      "id": "fc_kitchen",
+      "n": "10.2",
+      "title": "Kitchen",
+      "blurb": "Appliances and units."
+    },
+    {
+      "id": "fc_bathroom",
+      "n": "10.3",
+      "title": "Bathrooms",
+      "blurb": "Fittings in every bathroom and cloakroom."
+    },
+    {
+      "id": "fc_carpets",
+      "n": "10.4",
+      "title": "Carpets and floor coverings",
+      "blurb": "Room by room."
+    },
+    {
+      "id": "fc_curtains",
+      "n": "10.5",
+      "title": "Curtains, blinds and rails",
+      "blurb": "What comes down and what stays up."
+    },
+    {
+      "id": "fc_lights",
+      "n": "10.6",
+      "title": "Light fittings",
+      "blurb": "Fittings, shades and bulbs."
+    },
+    {
+      "id": "fc_fitted",
+      "n": "10.7",
+      "title": "Fitted units and shelving",
+      "blurb": "Built-in storage."
+    },
+    {
+      "id": "fc_outdoor",
+      "n": "10.8",
+      "title": "Garden and outside",
+      "blurb": "Sheds, plants, furniture and bins."
+    },
+    {
+      "id": "fc_tv",
+      "n": "10.9",
+      "title": "TV, phone and internet",
+      "blurb": "Aerials, dishes and handsets."
+    },
+    {
+      "id": "fc_fuel",
+      "n": "10.10",
+      "title": "Stock of fuel",
+      "blurb": "Only if you have a tank or a log store."
+    },
+    {
+      "id": "fc_other",
+      "n": "10.11",
+      "title": "Anything else",
+      "blurb": "Whatever the list has not covered."
+    }
   ],
   "questions": [
-    { "id": "fc.0", "n": "10", "s": "fc_basic", "t": "yesno", "q": "Ready to sort out what stays and what comes with you?", "help": "This is the fittings and contents list your buyer gets. It is mostly tapping - a room at a time, about a minute each. Anything you mark as coming with you can be offered to the buyer for a price if you want.", "secs": 15 },
-
-    { "id": "fc.1", "n": "10.1", "s": "fc_basic", "t": "checklist", "q": "Heating, power and alarms - what stays?", "help": "If something is not there at all, tap the third option. Anything you are taking, you can offer to the buyer for a price.", "secs": 90,
-      "opts": ["Stays", "I'm taking it", "Not there"],
+    {
+      "id": "fc.0",
+      "n": "10",
+      "s": "fc_basic",
+      "t": "yesno",
+      "q": "Ready to sort out what stays and what comes with you?",
+      "help": "This is the fittings and contents list your buyer gets. It is mostly tapping - a room at a time, about a minute each. Anything you mark as coming with you can be offered to the buyer for a price if you want.",
+      "secs": 15
+    },
+    {
+      "id": "fc.1",
+      "n": "10.1",
+      "s": "fc_basic",
+      "t": "checklist",
+      "q": "Heating, power and alarms - what stays?",
+      "help": "If something is not there at all, tap the third option. Anything you are taking, you can offer to the buyer for a price.",
+      "secs": 90,
+      "opts": [
+        "Stays",
+        "I'm taking it",
+        "Not there"
+      ],
       "rows": [
-        { "k": "boiler", "label": "Boiler and heating system" },
-        { "k": "radiators", "label": "Radiators or wall heaters" },
-        { "k": "storage_heaters", "label": "Night storage heaters" },
-        { "k": "immersion", "label": "Immersion heater" },
-        { "k": "cylinder", "label": "Hot water cylinder" },
-        { "k": "fires", "label": "Gas or electric fires, and their surrounds" },
-        { "k": "extractors", "label": "Extractor fans" },
-        { "k": "sockets", "label": "Sockets and switches" },
-        { "k": "alarm", "label": "Burglar alarm" },
-        { "k": "smoke", "label": "Smoke and carbon monoxide alarms" },
-        { "k": "doorbell", "label": "Doorbell or video doorbell" },
-        { "k": "thermostat", "label": "Smart thermostat (Nest, Hive and similar)" },
-        { "k": "ev_charger", "label": "EV charging point" }
-      ] },
-
-    { "id": "fc.2", "n": "10.2", "s": "fc_kitchen", "t": "checklist", "q": "Kitchen - what stays?", "help": "Freestanding appliances are the ones buyers most often get wrong. If the fridge is coming with you, say so now rather than on moving day.", "secs": 90,
-      "opts": ["Stays", "I'm taking it", "Not there"],
+        {
+          "k": "boiler",
+          "label": "Boiler and heating system"
+        },
+        {
+          "k": "radiators",
+          "label": "Radiators or wall heaters"
+        },
+        {
+          "k": "storage_heaters",
+          "label": "Night storage heaters"
+        },
+        {
+          "k": "immersion",
+          "label": "Immersion heater"
+        },
+        {
+          "k": "cylinder",
+          "label": "Hot water cylinder"
+        },
+        {
+          "k": "fires",
+          "label": "Gas or electric fires, and their surrounds"
+        },
+        {
+          "k": "extractors",
+          "label": "Extractor fans"
+        },
+        {
+          "k": "sockets",
+          "label": "Sockets and switches"
+        },
+        {
+          "k": "alarm",
+          "label": "Burglar alarm"
+        },
+        {
+          "k": "smoke",
+          "label": "Smoke and carbon monoxide alarms"
+        },
+        {
+          "k": "doorbell",
+          "label": "Doorbell or video doorbell"
+        },
+        {
+          "k": "thermostat",
+          "label": "Smart thermostat (Nest, Hive and similar)"
+        },
+        {
+          "k": "ev_charger",
+          "label": "EV charging point"
+        }
+      ]
+    },
+    {
+      "id": "fc.2",
+      "n": "10.2",
+      "s": "fc_kitchen",
+      "t": "checklist",
+      "q": "Kitchen - what stays?",
+      "help": "Freestanding appliances are the ones buyers most often get wrong. If the fridge is coming with you, say so now rather than on moving day.",
+      "secs": 90,
+      "opts": [
+        "Stays",
+        "I'm taking it",
+        "Not there"
+      ],
       "rows": [
-        { "k": "hob", "label": "Hob" },
-        { "k": "extractor_hood", "label": "Extractor hood" },
-        { "k": "oven", "label": "Oven or grill" },
-        { "k": "range", "label": "Range cooker" },
-        { "k": "microwave", "label": "Microwave" },
-        { "k": "fridge", "label": "Fridge or fridge-freezer" },
-        { "k": "freezer", "label": "Separate freezer" },
-        { "k": "dishwasher", "label": "Dishwasher" },
-        { "k": "washing_machine", "label": "Washing machine" },
-        { "k": "dryer", "label": "Tumble dryer" },
-        { "k": "units", "label": "Kitchen units and worktops" },
-        { "k": "water_filter", "label": "Water softener or filter tap" }
-      ] },
-
-    { "id": "fc.3", "n": "10.3", "s": "fc_bathroom", "t": "checklist", "q": "Bathrooms - what stays?", "help": "Covers every bathroom, shower room and cloakroom in the property.", "secs": 60,
-      "opts": ["Stays", "I'm taking it", "Not there"],
+        {
+          "k": "hob",
+          "label": "Hob"
+        },
+        {
+          "k": "extractor_hood",
+          "label": "Extractor hood"
+        },
+        {
+          "k": "oven",
+          "label": "Oven or grill"
+        },
+        {
+          "k": "range",
+          "label": "Range cooker"
+        },
+        {
+          "k": "microwave",
+          "label": "Microwave"
+        },
+        {
+          "k": "fridge",
+          "label": "Fridge or fridge-freezer"
+        },
+        {
+          "k": "freezer",
+          "label": "Separate freezer"
+        },
+        {
+          "k": "dishwasher",
+          "label": "Dishwasher"
+        },
+        {
+          "k": "washing_machine",
+          "label": "Washing machine"
+        },
+        {
+          "k": "dryer",
+          "label": "Tumble dryer"
+        },
+        {
+          "k": "units",
+          "label": "Kitchen units and worktops"
+        },
+        {
+          "k": "water_filter",
+          "label": "Water softener or filter tap"
+        }
+      ]
+    },
+    {
+      "id": "fc.3",
+      "n": "10.3",
+      "s": "fc_bathroom",
+      "t": "checklist",
+      "q": "Bathrooms - what stays?",
+      "help": "Covers every bathroom, shower room and cloakroom in the property.",
+      "secs": 60,
+      "opts": [
+        "Stays",
+        "I'm taking it",
+        "Not there"
+      ],
       "rows": [
-        { "k": "bath", "label": "Bath" },
-        { "k": "shower", "label": "Shower and shower screen" },
-        { "k": "shower_curtain", "label": "Shower curtain" },
-        { "k": "cabinet", "label": "Bathroom cabinet" },
-        { "k": "towel_rail", "label": "Towel rail" },
-        { "k": "mirrors", "label": "Mirrors" },
-        { "k": "holders", "label": "Soap, toothbrush and toilet roll holders" }
-      ] },
-
-    { "id": "fc.4", "n": "10.4", "s": "fc_carpets", "t": "checklist", "q": "Carpets and floor coverings - which rooms keep theirs?", "help": "Fitted carpets usually stay; rugs usually go. Tap through room by room.", "secs": 75,
-      "opts": ["Stays", "I'm taking it", "No covering"],
+        {
+          "k": "bath",
+          "label": "Bath"
+        },
+        {
+          "k": "shower",
+          "label": "Shower and shower screen"
+        },
+        {
+          "k": "shower_curtain",
+          "label": "Shower curtain"
+        },
+        {
+          "k": "cabinet",
+          "label": "Bathroom cabinet"
+        },
+        {
+          "k": "towel_rail",
+          "label": "Towel rail"
+        },
+        {
+          "k": "mirrors",
+          "label": "Mirrors"
+        },
+        {
+          "k": "holders",
+          "label": "Soap, toothbrush and toilet roll holders"
+        }
+      ]
+    },
+    {
+      "id": "fc.4",
+      "n": "10.4",
+      "s": "fc_carpets",
+      "t": "checklist",
+      "q": "Carpets and floor coverings - which rooms keep theirs?",
+      "help": "Fitted carpets usually stay; rugs usually go. Tap through room by room.",
+      "secs": 75,
+      "opts": [
+        "Stays",
+        "I'm taking it",
+        "No covering"
+      ],
       "rows": [
-        { "k": "hall", "label": "Hall, stairs and landing" },
-        { "k": "living", "label": "Living room" },
-        { "k": "dining", "label": "Dining room" },
-        { "k": "kitchen", "label": "Kitchen" },
-        { "k": "bedrooms", "label": "Bedrooms" },
-        { "k": "bathrooms", "label": "Bathrooms" },
-        { "k": "other_rooms", "label": "Any other rooms" }
-      ] },
-
-    { "id": "fc.5", "n": "10.5", "s": "fc_curtains", "t": "checklist", "q": "Curtains, blinds and rails - what stays?", "help": "Rails and poles often stay even when the curtains go. Worth separating them.", "secs": 60,
-      "opts": ["Stays", "I'm taking it", "Not there"],
+        {
+          "k": "hall",
+          "label": "Hall, stairs and landing"
+        },
+        {
+          "k": "living",
+          "label": "Living room"
+        },
+        {
+          "k": "dining",
+          "label": "Dining room"
+        },
+        {
+          "k": "kitchen",
+          "label": "Kitchen"
+        },
+        {
+          "k": "bedrooms",
+          "label": "Bedrooms"
+        },
+        {
+          "k": "bathrooms",
+          "label": "Bathrooms"
+        },
+        {
+          "k": "other_rooms",
+          "label": "Any other rooms"
+        }
+      ]
+    },
+    {
+      "id": "fc.5",
+      "n": "10.5",
+      "s": "fc_curtains",
+      "t": "checklist",
+      "q": "Curtains, blinds and rails - what stays?",
+      "help": "Rails and poles often stay even when the curtains go. Worth separating them.",
+      "secs": 60,
+      "opts": [
+        "Stays",
+        "I'm taking it",
+        "Not there"
+      ],
       "rows": [
-        { "k": "curtains", "label": "Curtains" },
-        { "k": "nets", "label": "Net curtains" },
-        { "k": "rails", "label": "Curtain rails, poles and pelmets" },
-        { "k": "blinds", "label": "Blinds" },
-        { "k": "shutters", "label": "Shutters" }
-      ] },
-
-    { "id": "fc.6", "n": "10.6", "s": "fc_lights", "t": "checklist", "q": "Light fittings - what stays?", "help": "If you are taking a fitting, the rule is that a working bulb holder should be left behind - not bare wires.", "secs": 50,
-      "opts": ["Stays", "I'm taking it", "Not there"],
+        {
+          "k": "curtains",
+          "label": "Curtains"
+        },
+        {
+          "k": "nets",
+          "label": "Net curtains"
+        },
+        {
+          "k": "rails",
+          "label": "Curtain rails, poles and pelmets"
+        },
+        {
+          "k": "blinds",
+          "label": "Blinds"
+        },
+        {
+          "k": "shutters",
+          "label": "Shutters"
+        }
+      ]
+    },
+    {
+      "id": "fc.6",
+      "n": "10.6",
+      "s": "fc_lights",
+      "t": "checklist",
+      "q": "Light fittings - what stays?",
+      "help": "If you are taking a fitting, the rule is that a working bulb holder should be left behind - not bare wires.",
+      "secs": 50,
+      "opts": [
+        "Stays",
+        "I'm taking it",
+        "Not there"
+      ],
       "rows": [
-        { "k": "ceiling", "label": "Ceiling lights and fittings" },
-        { "k": "shades", "label": "Lamp shades" },
-        { "k": "wall", "label": "Wall lights" },
-        { "k": "outside", "label": "Outside lights" },
-        { "k": "spotlights", "label": "Fitted spotlights and downlighters" }
-      ] },
-
-    { "id": "fc.7", "n": "10.7", "s": "fc_fitted", "t": "checklist", "q": "Fitted units and shelving - what stays?", "secs": 45,
-      "opts": ["Stays", "I'm taking it", "Not there"],
+        {
+          "k": "ceiling",
+          "label": "Ceiling lights and fittings"
+        },
+        {
+          "k": "shades",
+          "label": "Lamp shades"
+        },
+        {
+          "k": "wall",
+          "label": "Wall lights"
+        },
+        {
+          "k": "outside",
+          "label": "Outside lights"
+        },
+        {
+          "k": "spotlights",
+          "label": "Fitted spotlights and downlighters"
+        }
+      ]
+    },
+    {
+      "id": "fc.7",
+      "n": "10.7",
+      "s": "fc_fitted",
+      "t": "checklist",
+      "q": "Fitted units and shelving - what stays?",
+      "secs": 45,
+      "opts": [
+        "Stays",
+        "I'm taking it",
+        "Not there"
+      ],
       "rows": [
-        { "k": "wardrobes", "label": "Fitted wardrobes" },
-        { "k": "bedroom_units", "label": "Other fitted bedroom units" },
-        { "k": "shelves", "label": "Shelves" },
-        { "k": "cupboards", "label": "Fitted cupboards" }
-      ] },
-
-    { "id": "fc.8", "n": "10.8", "s": "fc_outdoor", "t": "checklist", "q": "Garden and outside - what stays?", "help": "Plants in the ground normally stay; pots normally go. If you are digging up a favourite shrub, it belongs on this list.", "secs": 80,
-      "opts": ["Stays", "I'm taking it", "Not there"],
+        {
+          "k": "wardrobes",
+          "label": "Fitted wardrobes"
+        },
+        {
+          "k": "bedroom_units",
+          "label": "Other fitted bedroom units"
+        },
+        {
+          "k": "shelves",
+          "label": "Shelves"
+        },
+        {
+          "k": "cupboards",
+          "label": "Fitted cupboards"
+        }
+      ]
+    },
+    {
+      "id": "fc.8",
+      "n": "10.8",
+      "s": "fc_outdoor",
+      "t": "checklist",
+      "q": "Garden and outside - what stays?",
+      "help": "Plants in the ground normally stay; pots normally go. If you are digging up a favourite shrub, it belongs on this list.",
+      "secs": 80,
+      "opts": [
+        "Stays",
+        "I'm taking it",
+        "Not there"
+      ],
       "rows": [
-        { "k": "shed", "label": "Garden shed" },
-        { "k": "greenhouse", "label": "Greenhouse" },
-        { "k": "furniture", "label": "Garden furniture" },
-        { "k": "ornaments", "label": "Garden ornaments and statues" },
-        { "k": "pots", "label": "Pots and planters" },
-        { "k": "plants", "label": "Trees, plants and shrubs in the ground" },
-        { "k": "barbecue", "label": "Barbecue or pizza oven" },
-        { "k": "hot_tub", "label": "Hot tub" },
-        { "k": "bins", "label": "Dustbins and recycling boxes" },
-        { "k": "water_butt", "label": "Water butt" },
-        { "k": "clothes_line", "label": "Clothes line or rotary dryer" }
-      ] },
-
-    { "id": "fc.9", "n": "10.9", "s": "fc_tv", "t": "checklist", "q": "TV, phone and internet - what stays?", "secs": 45,
-      "opts": ["Stays", "I'm taking it", "Not there"],
+        {
+          "k": "shed",
+          "label": "Garden shed"
+        },
+        {
+          "k": "greenhouse",
+          "label": "Greenhouse"
+        },
+        {
+          "k": "furniture",
+          "label": "Garden furniture"
+        },
+        {
+          "k": "ornaments",
+          "label": "Garden ornaments and statues"
+        },
+        {
+          "k": "pots",
+          "label": "Pots and planters"
+        },
+        {
+          "k": "plants",
+          "label": "Trees, plants and shrubs in the ground"
+        },
+        {
+          "k": "barbecue",
+          "label": "Barbecue or pizza oven"
+        },
+        {
+          "k": "hot_tub",
+          "label": "Hot tub"
+        },
+        {
+          "k": "bins",
+          "label": "Dustbins and recycling boxes"
+        },
+        {
+          "k": "water_butt",
+          "label": "Water butt"
+        },
+        {
+          "k": "clothes_line",
+          "label": "Clothes line or rotary dryer"
+        }
+      ]
+    },
+    {
+      "id": "fc.9",
+      "n": "10.9",
+      "s": "fc_tv",
+      "t": "checklist",
+      "q": "TV, phone and internet - what stays?",
+      "secs": 45,
+      "opts": [
+        "Stays",
+        "I'm taking it",
+        "Not there"
+      ],
       "rows": [
-        { "k": "aerial", "label": "TV aerial" },
-        { "k": "dish", "label": "Satellite dish" },
-        { "k": "brackets", "label": "TV wall brackets" },
-        { "k": "handsets", "label": "Telephone handsets" },
-        { "k": "router", "label": "Broadband router" }
-      ] },
-
-    { "id": "fc.10", "n": "10.10", "s": "fc_fuel", "t": "yesno", "q": "Is there a stock of fuel - heating oil, LPG, logs or coal?", "help": "If there is, buyers usually pay for whatever is left in the tank on completion. Skip if you are on mains gas.", "secs": 20,
-      "followUp": { "when": "Yes", "t": "longtext", "q": "What fuel, roughly how much is there, and is the buyer paying for it?", "secs": 60 } },
-
-    { "id": "fc.11", "n": "10.11", "s": "fc_other", "t": "longtext", "q": "Anything else you are leaving or taking that we have not asked about?", "help": "Optional. Paint tins for touching up, a spare set of tiles, the log burner tools, the trampoline.", "optional": true, "secs": 60 },
-
-    { "id": "fc.12", "n": "10.11", "s": "fc_other", "t": "yesno", "q": "Is there anything you are taking that you would sell to the buyer?", "help": "Common ones: the fridge, garden furniture, curtains, a shed. Naming a price now saves a negotiation later.", "secs": 25,
-      "followUp": { "when": "Yes", "t": "longtext", "q": "What, and what would you want for it?", "secs": 90 } }
+        {
+          "k": "aerial",
+          "label": "TV aerial"
+        },
+        {
+          "k": "dish",
+          "label": "Satellite dish"
+        },
+        {
+          "k": "brackets",
+          "label": "TV wall brackets"
+        },
+        {
+          "k": "handsets",
+          "label": "Telephone handsets"
+        },
+        {
+          "k": "router",
+          "label": "Broadband router"
+        }
+      ]
+    },
+    {
+      "id": "fc.10",
+      "n": "10.10",
+      "s": "fc_fuel",
+      "t": "yesno",
+      "q": "Is there a stock of fuel - heating oil, LPG, logs or coal?",
+      "help": "If there is, buyers usually pay for whatever is left in the tank on completion. Skip if you are on mains gas.",
+      "secs": 20,
+      "followUp": {
+        "when": "Yes",
+        "t": "longtext",
+        "q": "What fuel, roughly how much is there, and is the buyer paying for it?",
+        "secs": 60
+      }
+    },
+    {
+      "id": "fc.11",
+      "n": "10.11",
+      "s": "fc_other",
+      "t": "longtext",
+      "q": "Anything else you are leaving or taking that we have not asked about?",
+      "help": "Optional. Paint tins for touching up, a spare set of tiles, the log burner tools, the trampoline.",
+      "optional": true,
+      "secs": 60
+    },
+    {
+      "id": "fc.12",
+      "n": "10.12",
+      "s": "fc_other",
+      "t": "yesno",
+      "q": "Is there anything you are taking that you would sell to the buyer?",
+      "help": "Common ones: the fridge, garden furniture, curtains, a shed. Naming a price now saves a negotiation later.",
+      "secs": 25,
+      "followUp": {
+        "when": "Yes",
+        "t": "longtext",
+        "q": "What, and what would you want for it?",
+        "secs": 90
+      }
+    }
   ]
 }

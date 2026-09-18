@@ -36,6 +36,13 @@ export function buildExport(store, caseId) {
       if (item.s !== section.id) continue;
       if (!isApplicable(item, answers)) continue;
       const a = answers[item.id];
+      const checklistRows = item.t === 'checklist' && a?.value && typeof a.value === 'object'
+        ? (item.rows ?? []).map((r) => {
+            const entry = a.value[r.k];
+            if (entry == null) return null;
+            return { label: r.label, status: entry?.status ?? entry, price: entry?.price ?? null };
+          }).filter(Boolean)
+        : null;
       rows.push({
         id: item.id,
         number: item.n,
@@ -43,6 +50,7 @@ export function buildExport(store, caseId) {
         track: item.track ?? 'form',
         question: item.q,
         answer: a ? fmt(a.value, item) : null,
+        checklistRows,
         status: a?.status ?? 'unanswered',
         source: a?.source ?? null,
         attachments: attachments.filter((f) => f.item_id === item.id).map((f) => f.filename),
@@ -83,6 +91,21 @@ export function buildExport(store, caseId) {
   };
 }
 
+/**
+ * A fittings list is a list. Rendering it as one long semicolon-separated run
+ * makes it unreadable for the person who has to check it against the contract.
+ */
+function renderAnswer(row, statusBadge) {
+  if (row.checklistRows?.length) {
+    return `<ul class="fittings">${row.checklistRows.map((f) => `<li>
+      <span class="ft">${esc(f.label)}</span>
+      <span class="fs ${f.status?.toLowerCase().includes('taking') ? 'out' : f.status?.toLowerCase().includes('not there') || f.status?.toLowerCase().includes('no covering') ? 'none' : 'in'}">${esc(f.status)}${f.price ? ` — ${esc(f.price)}` : ''}</span>
+    </li>`).join('')}</ul>`;
+  }
+  if (!row.answer) return statusBadge(row.status);
+  return `${esc(row.answer)}${row.status === 'prefilled' ? `<br>${statusBadge(row.status)}` : ''}`;
+}
+
 /** Print-ready HTML - opens in a browser, prints or saves to PDF, no dependencies. */
 export function toHtml(data) {
   const statusBadge = (s) => s === 'unanswered'
@@ -102,13 +125,21 @@ export function toHtml(data) {
   table { width:100%; border-collapse:collapse; }
   td { border-bottom:1px solid var(--line); padding:.5rem .4rem; vertical-align:top; }
   td.n { width:4.5rem; color:var(--muted); font-variant-numeric:tabular-nums; }
-  td.a { width:40%; }
+  td.a { width:46%; }
   .q { color:var(--muted); }
   .fu td.n::before { content:"↳ "; }
   .gap { color:var(--gap); font-style:normal; font-weight:600; }
   .pf { color:var(--muted); }
   .summary { background:#f4f7f9; border:1px solid var(--line); border-radius:8px; padding:.9rem 1.1rem; margin-bottom:1.5rem; }
   .files { color:var(--muted); font-size:.85rem; }
+  ul.fittings { list-style:none; margin:0; padding:0; }
+  ul.fittings li { display:flex; justify-content:space-between; gap:.75rem; padding:.2rem 0; border-bottom:1px dotted var(--line); }
+  ul.fittings li:last-child { border-bottom:0; }
+  .ft { color:var(--ink); }
+  .fs { white-space:nowrap; font-weight:600; }
+  .fs.in { color:var(--ok); }
+  .fs.out { color:var(--gap); }
+  .fs.none { color:var(--muted); font-weight:400; }
   .sig { margin-top:.35rem; }
   footer { margin-top:3rem; color:var(--muted); font-size:.78rem; border-top:1px solid var(--line); padding-top:.75rem; }
   @media print { body { margin:0; max-width:none; } h2 { break-after:avoid; } tr { break-inside:avoid; } }
@@ -125,7 +156,7 @@ ${data.sections.map((s) => `<h2>${esc(s.n)}. ${esc(s.title)}</h2>
 <table>${s.rows.map((r) => `<tr class="${r.kind === 'followup' ? 'fu' : ''}">
   <td class="n">${esc(r.number)}</td>
   <td class="q">${esc(r.question)}</td>
-  <td class="a">${r.answer ? esc(r.answer) : statusBadge(r.status)}${r.answer && r.status === 'prefilled' ? `<br>${statusBadge(r.status)}` : ''}${r.attachments.length ? `<div class="files">📎 ${r.attachments.map(esc).join(', ')}</div>` : ''}</td>
+  <td class="a">${renderAnswer(r, statusBadge)}${r.attachments.length ? `<div class="files">📎 ${r.attachments.map(esc).join(', ')}</div>` : ''}</td>
 </tr>`).join('')}</table>`).join('')}
 <footer>
   Generated ${esc(data.generatedAt)} from answers given by the seller across web and messaging channels.
