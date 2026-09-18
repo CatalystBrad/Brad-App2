@@ -38,12 +38,14 @@ const clip = (s, n) => (s == null ? '' : String(s).length <= n ? String(s) : `${
  * Renders one question into a WhatsApp send payload.
  * Returns { payload, mode } where mode is 'interactive' | 'text' | 'web_handoff'.
  */
-export function renderQuestion(item, { to, webLink, progress, prefilled } = {}) {
+export const REPEAT_PREFIX = 'Still on this one -\n\n';
+
+export function renderQuestion(item, { to, webLink, progress, prefilled, repeat = false } = {}) {
   const footer = progress ? clip(`${progress.answered}/${progress.applicable} done · ${progress.minutesLeft} min left`, LIMITS.footer) : undefined;
   const base = { messaging_product: 'whatsapp', to, recipient_type: 'individual' };
 
   const bodyText = item.help ? `${item.q}\n\n_${item.help}_` : item.q;
-  const body = clip(bodyText, LIMITS.body);
+  const body = clip(`${repeat ? REPEAT_PREFIX : ''}${bodyText}`, LIMITS.body);
 
   // Confirming what we already found: one tap, whatever kind of field it is.
   if (prefilled != null) {
@@ -54,7 +56,7 @@ export function renderQuestion(item, { to, webLink, progress, prefilled } = {}) 
         type: 'interactive',
         interactive: {
           type: 'button',
-          body: { text: clip(`${item.q}\n\nWe have: *${formatPrefill(prefilled)}*`, LIMITS.body) },
+          body: { text: clip(`${repeat ? REPEAT_PREFIX : ''}${item.q}\n\nWe have: *${formatPrefill(prefilled)}*`, LIMITS.body) },
           ...(footer ? { footer: { text: footer } } : {}),
           action: {
             buttons: [CONFIRM_YES, CONFIRM_NO, PARK_TITLE].map((opt) => ({

@@ -20,6 +20,29 @@ export const COMMANDS = {
   STOP: 'optout', STOPALL: 'optout', UNSUBSCRIBE: 'optout', END: 'optout', QUIT: 'optout',
 };
 
+// The menu offers these in plain English, so they have to actually work. None
+// of them is a valid answer to any question on the forms, so they are safe to
+// read as commands wherever they appear.
+export const CADENCE_WORDS = {
+  MORNINGS: { window: { start: '07:30', end: '09:00' } },
+  MORNING: { window: { start: '07:30', end: '09:00' } },
+  LUNCHTIME: { window: { start: '12:00', end: '14:00' } },
+  LUNCH: { window: { start: '12:00', end: '14:00' } },
+  EVENINGS: { window: { start: '18:00', end: '21:00' } },
+  EVENING: { window: { start: '18:00', end: '21:00' } },
+  DAILY: { frequency: 'daily' },
+  WEEKLY: { frequency: 'weekly' },
+  WEEKDAYS: { frequency: 'weekdays' },
+  'EVERY OTHER DAY': { frequency: 'every_other_day' },
+  'TWICE A DAY': { frequency: 'twice_daily' },
+  'TWICE DAILY': { frequency: 'twice_daily' },
+};
+
+export function describeCadence(cadence) {
+  const how = String(cadence.frequency).replace(/_/g, ' ');
+  return `${how}, between ${cadence.window.start} and ${cadence.window.end}`;
+}
+
 export function formatPrefill(value) {
   if (value == null) return '';
   if (Array.isArray(value)) return value.join(', ');
@@ -41,10 +64,18 @@ export function optionsFor(item, { includePark = true } = {}) {
  * something ambiguous, because a wrong answer on a property form is a claim
  * waiting to happen.
  */
-export function interpretText(text, askedItem) {
+export function interpretText(text, askedItem, { afterMenu = false } = {}) {
   const raw = String(text ?? '').trim();
-  const upper = raw.toUpperCase();
+  const upper = raw.toUpperCase().replace(/\s+/g, ' ');
   if (COMMANDS[upper]) return { action: COMMANDS[upper] };
+  if (CADENCE_WORDS[upper]) return { action: 'set_cadence', cadence: CADENCE_WORDS[upper] };
+
+  // Straight after the menu, a bare number means "ask me this many at a time",
+  // not an answer to whatever question happened to be open.
+  if (afterMenu) {
+    const n = Number(raw);
+    if (Number.isInteger(n) && n >= 1 && n <= 10) return { action: 'set_size', size: n };
+  }
 
   if (!askedItem) return { action: 'unrecognised' };
 

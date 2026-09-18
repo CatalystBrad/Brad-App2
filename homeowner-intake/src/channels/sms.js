@@ -28,11 +28,14 @@ export const toGsm = (s) => String(s ?? '')
 
 export const segments = (body) => Math.max(1, Math.ceil(toGsm(body).length / LIMITS.segment));
 
-export function renderQuestion(item, { to, webLink, prefilled, stopHint = false } = {}) {
+export const REPEAT_PREFIX = 'Still on this one - ';
+
+export function renderQuestion(item, { to, webLink, prefilled, stopHint = false, repeat = false } = {}) {
   const tail = stopHint ? '\nReply STOP to opt out.' : '';
+  const head = repeat ? REPEAT_PREFIX : '';
 
   if (prefilled != null) {
-    const body = toGsm(`${item.q}\nWe have: ${formatPrefillLocal(prefilled)}\nReply 1 = ${CONFIRM_YES}, 2 = ${CONFIRM_NO}, 3 = ${PARK_TITLE}${tail}`);
+    const body = toGsm(`${head}${item.q}\nWe have: ${formatPrefillLocal(prefilled)}\nReply 1 = ${CONFIRM_YES}, 2 = ${CONFIRM_NO}, 3 = ${PARK_TITLE}${tail}`);
     return { mode: 'text', options: [CONFIRM_YES, CONFIRM_NO, PARK_TITLE], payload: { to, body: clip(body, LIMITS.maxChars) } };
   }
 
@@ -46,11 +49,11 @@ export function renderQuestion(item, { to, webLink, prefilled, stopHint = false 
 
   const options = optionsFor(item);
   if (options.length === 0) {
-    return { mode: 'text', payload: { to, body: toGsm(clip(`${item.q}\nJust reply with your answer, or SKIP.${tail}`, LIMITS.maxChars)) } };
+    return { mode: 'text', payload: { to, body: toGsm(clip(`${head}${item.q}\nJust reply with your answer, or SKIP.${tail}`, LIMITS.maxChars)) } };
   }
 
   const numbered = options.map((o, i) => `${i + 1} ${o}`).join(', ');
-  const body = toGsm(`${item.q}\nReply: ${numbered}${tail}`);
+  const body = toGsm(`${head}${item.q}\nReply: ${numbered}${tail}`);
   // Too long to be worth two or three segments - send the link instead.
   if (body.length > LIMITS.maxChars || options.length > LIMITS.optionsInline) {
     return {

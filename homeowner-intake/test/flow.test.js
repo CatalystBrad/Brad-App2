@@ -367,3 +367,81 @@ test('messaging channels hand a checklist to the web app rather than mangling it
   const m = sms.renderQuestion(checklist, { to: '4477', webLink: 'https://app.test/s/tok' });
   assert.equal(m.mode, 'web_handoff');
 });
+
+test('every command the menu advertises actually works', async () => {
+  const { store, caseId, sender, seller } = setup();
+  await startSession(store, sender, seller.id, { template: 'resume' });
+  await handleInbound(store, sender, inbound({ text: 'go' }));
+  await handleInbound(store, sender, inbound({ text: 'MENU' }));
+
+  // The menu text and the reply interpreter must not drift apart.
+  const menu = sender.sent.at(-1).text.body;
+  for (const word of ['MORNINGS', 'LUNCHTIME', 'EVENINGS', 'DAILY', 'WEEKLY', 'EVERY OTHER DAY', 'PAUSE', 'MORE']) {
+    assert.ok(menu.includes(word), `the menu offers no ${word}`);
+    const intent = wa.interpretText(word, null);
+    assert.notEqual(intent.action, 'unrecognised', `the menu offers ${word} but nothing handles it`);
+  }
+
+  await handleInbound(store, sender, inbound({ text: 'EVENINGS' }));
+  assert.deepEqual(store.getParticipant(seller.id).cadence.window, { start: '18:00', end: '21:00' });
+
+  await handleInbound(store, sender, inbound({ text: 'weekly' }));
+  assert.equal(store.getParticipant(seller.id).cadence.frequency, 'weekly');
+  assert.match(sender.sent.at(-1).text.body, /weekly, between 18:00 and 21:00/);
+  assert.ok(store.events(caseId).some((e) => e.kind === 'preferences_changed'));
+});
+
+test('a number after the menu changes the batch size, not the answer on screen', async () => {
+  const { store, caseId, sender, seller } = setup();
+  await startSession(store, sender, seller.id, { template: 'resume' });
+  await handleInbound(store, sender, inbound({ text: 'go' }));
+
+  // Park everything until a free-text question is on the table, so a bare
+  // number would otherwise be stored as the answer.
+  for (let i = 0; i < 12 && !['text', 'longtext', 'address'].includes(lastAsked(store, seller.id)?.t); i++) {
+    await handleInbound(store, sender, inbound({ text: 'SKIP' }));
+  }
+  const pending = lastAsked(store, seller.id);
+  assert.ok(pending, 'expected a question to be open');
+
+  await handleInbound(store, sender, inbound({ text: 'menu' }));
+  await handleInbound(store, sender, inbound({ text: '5' }));
+
+  assert.equal(store.getParticipant(seller.id).plan.size, 5);
+  assert.equal(store.answers(caseId)[pending.id], undefined, 'the number must not be stored as an answer');
+});
+
+test('a number with no menu before it is still an answer', async () => {
+  const { store, caseId, sender, seller } = setup();
+  await startSession(store, sender, seller.id, { template: 'resume' });
+  await handleInbound(store, sender, inbound({ text: 'go' }));
+  for (let i = 0; i < 12 && lastAsked(store, seller.id)?.t !== 'year_or_unknown'; i++) {
+    await handleInbound(store, sender, inbound({ text: 'SKIP' }));
+  }
+  // Whatever is open, a bare number outside the menu context is an answer or a
+  // clarification - never a settings change.
+  const before = store.getParticipant(seller.id).plan.size;
+  await handleInbound(store, sender, inbound({ text: '3' }));
+  assert.equal(store.getParticipant(seller.id).plan.size, before, 'plan changed without a menu');
+});
+
+test('re-asking the same question says so instead of looking like a duplicate', async () => {
+  const { store, sender, seller } = setup();
+  await startSession(store, sender, seller.id, { template: 'resume' });
+  await handleInbound(store, sender, inbound({ text: 'go' }));
+  const asked = lastAsked(store, seller.id);
+
+  await handleInbound(store, sender, inbound({ text: 'MORE' }));
+  assert.equal(lastAsked(store, seller.id).id, asked.id, 'the open question is still the open question');
+
+  const body = sender.sent.at(-1).interactive?.body?.text ?? sender.sent.at(-1).text?.body ?? '';
+  assert.match(body, /Still on this one/, 'a repeat must be marked as a repeat');
+});
+
+test('a first ask is never marked as a repeat', async () => {
+  const { store, sender, seller } = setup();
+  await startSession(store, sender, seller.id, { template: 'resume' });
+  await handleInbound(store, sender, inbound({ text: 'go' }));
+  const body = sender.sent.at(-1).interactive?.body?.text ?? sender.sent.at(-1).text?.body ?? '';
+  assert.equal(/Still on this one/.test(body), false);
+});

@@ -18,6 +18,13 @@ export function lastAsked(store, participantId) {
   return payload.itemId ? store.bank.byId.get(payload.itemId) ?? null : null;
 }
 
+/** What kind of message we sent last - so a reply can be read in context. */
+function lastOutboundKind(store, participantId) {
+  return store.db.prepare(
+    'SELECT kind FROM outbox WHERE participant_id = ? AND sent_at IS NOT NULL ORDER BY id DESC LIMIT 1'
+  ).get(participantId)?.kind ?? null;
+}
+
 function answersSinceNudge(store, caseId, participant) {
   if (!participant.last_nudge_at) return 0;
   const row = store.db.prepare(
@@ -100,6 +107,8 @@ export async function askNext(store, sender, participantId, { force = false } = 
   const rendered = channel.renderQuestion(item, {
     ...contextFor(store, p, { progress }),
     prefilled: existing?.status === 'prefilled' ? existing.value : undefined,
+    // Asking the same thing twice in a row reads as a glitch unless we say why.
+    repeat: lastAsked(store, participantId)?.id === item.id,
   });
   await dispatch(store, sender, p, { kind: 'question', payload: rendered.payload, channel: channelName, itemId: item.id });
   return { asked: item.id, mode: rendered.mode, channel: channelName };
@@ -202,7 +211,9 @@ export async function handleInbound(store, sender, msg, { now = new Date() } = {
     return { saved: msg.itemId, then: await askNext(store, sender, participant.id) };
   }
 
-  const intent = replies.interpretText(msg.text, asked);
+  const intent = replies.interpretText(msg.text, asked, {
+    afterMenu: lastOutboundKind(store, participant.id) === 'menu',
+  });
 
   // Replying to an invite, or messaging out of the blue, is a request to get on
   // with it - not something to answer with a link.
@@ -233,8 +244,20 @@ export async function handleInbound(store, sender, msg, { now = new Date() } = {
       await say(store, sender, participant, 'nudge', 'Paused for a week. Message me any time and we will pick it up - or reply MORE to carry on now.');
       return { paused: true };
     case 'menu':
-      await say(store, sender, participant, 'nudge', replies.menuMessage(participant.cadence, participant.plan));
+      await say(store, sender, participant, 'menu', replies.menuMessage(participant.cadence, participant.plan));
       return { menu: true };
+    case 'set_cadence': {
+      const updated = store.setPreferences(participant.id, { cadence: intent.cadence });
+      store.event(caseId, 'preferences_changed', { via: inboundChannel, cadence: intent.cadence });
+      await say(store, sender, participant, 'nudge', `Done - ${replies.describeCadence(updated.cadence)} from now on. Reply MORE if you want to carry on right now.`);
+      return { cadence: updated.cadence };
+    }
+    case 'set_size': {
+      const updated = store.setPreferences(participant.id, { plan: { mode: 'count', size: intent.size } });
+      store.event(caseId, 'preferences_changed', { via: inboundChannel, size: intent.size });
+      await say(store, sender, participant, 'nudge', `Right - ${intent.size} question${intent.size === 1 ? '' : 's'} at a time from now on.`);
+      return { then: await askNext(store, sender, participant.id, { force: true }) };
+    }
     case 'optout': {
       // Say goodbye first, then stop: after this the channel is closed.
       await say(store, sender, participant, 'nudge', `You will not hear from me on ${inboundChannel} again. Your solicitor will be in touch another way.`);
