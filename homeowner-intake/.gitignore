@@ -1,0 +1,6 @@
+node_modules/
+uploads/
+out/
+*.db
+*.db-wal
+*.db-shm

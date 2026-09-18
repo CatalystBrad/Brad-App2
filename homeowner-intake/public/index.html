@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16232e">
+<title>Your property questions</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header id="top">
+  <div class="wrap">
+    <div class="addr" id="addr">Loading…</div>
+    <div class="bar"><span id="fill"></span></div>
+    <div class="stat"><span id="stat"></span><button id="settingsBtn" class="ghost" type="button">Settings</button></div>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <section id="loading" class="card"><p>One moment…</p></section>
+
+  <section id="start" class="card hidden">
+    <h1 id="startTitle">Let's get your property information done in bites</h1>
+    <p id="startBody" class="lede"></p>
+    <ul class="points">
+      <li>Answer on your phone, whenever suits — three questions at a time.</li>
+      <li>Every answer saves the moment you tap. Close the tab whenever you like.</li>
+      <li>Not sure? Say so. <em>Not known</em> is a proper answer on this form.</li>
+    </ul>
+    <button class="primary" id="beginBtn" type="button">Start</button>
+    <button class="ghost block" id="startSettings" type="button">Change how often you're asked</button>
+  </section>
+
+  <section id="qcard" class="card hidden">
+    <div class="crumb"><span id="section"></span><span id="counter"></span></div>
+    <h2 id="question"></h2>
+    <div id="prefilled" class="prefill hidden"></div>
+    <button id="helpBtn" class="helplink hidden" type="button">Why are we asking?</button>
+    <p id="help" class="help hidden"></p>
+    <div id="answer" class="answer"></div>
+    <div class="secondary-row">
+      <button id="parkBtn" class="ghost" type="button">I'll check and come back</button>
+      <button id="skipBtn" class="ghost hidden" type="button">Skip — not relevant</button>
+    </div>
+  </section>
+
+  <section id="done" class="card hidden">
+    <h2 id="doneTitle">That's you done for now</h2>
+    <p id="doneBody" class="lede"></p>
+    <button class="primary" id="moreBtn" type="button">Keep going — a few more</button>
+    <button class="ghost block" id="doneSettings" type="button">Change when I'm asked</button>
+    <div id="paperwork" class="paperwork hidden">
+      <h3>Paperwork we still need</h3>
+      <p class="help">Photos are fine. A blurry photo of the right certificate beats a perfect one you never send.</p>
+      <ul id="paperworkList"></ul>
+    </div>
+  </section>
+
+  <section id="review" class="card hidden">
+    <h2>Check it over and sign</h2>
+    <p class="lede">Your buyer relies on these answers, so have a read. Tap anything to change it.</p>
+    <div id="reviewBody"></div>
+    <label class="confirm"><input type="checkbox" id="confirmBox"> I confirm these answers are true and complete as far as I know.</label>
+    <button class="primary" id="signBtn" type="button" disabled>Sign and send to my solicitor</button>
+  </section>
+
+  <section id="signed" class="card hidden">
+    <h2>Signed — thank you</h2>
+    <p class="lede">Your solicitor has it. If anything changes before you complete, come back here and tell us: it is important the buyer has the current picture.</p>
+  </section>
+</main>
+
+<dialog id="settings">
+  <form method="dialog">
+    <h2>How should we ask?</h2>
+    <fieldset>
+      <legend>How much at a time</legend>
+      <div class="chips" id="sizeChips">
+        <button type="button" data-mode="count" data-size="1">1 question</button>
+        <button type="button" data-mode="count" data-size="3">3 questions</button>
+        <button type="button" data-mode="count" data-size="5">5 questions</button>
+        <button type="button" data-mode="time" data-size="300">5 minutes</button>
+        <button type="button" data-mode="time" data-size="600">10 minutes</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>How often</legend>
+      <div class="chips" id="freqChips">
+        <button type="button" data-freq="twice_daily">Twice a day</button>
+        <button type="button" data-freq="daily">Daily</button>
+        <button type="button" data-freq="weekdays">Weekdays</button>
+        <button type="button" data-freq="every_other_day">Every other day</button>
+        <button type="button" data-freq="weekly">Weekly</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>What time of day</legend>
+      <div class="chips" id="whenChips">
+        <button type="button" data-start="07:30" data-end="09:00">Mornings</button>
+        <button type="button" data-start="12:00" data-end="14:00">Lunchtime</button>
+        <button type="button" data-start="18:00" data-end="21:00">Evenings</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Where</legend>
+      <div class="chips" id="chanChips">
+        <button type="button" data-chan="whatsapp">WhatsApp</button>
+        <button type="button" data-chan="sms">Text</button>
+        <button type="button" data-chan="email">Email</button>
+        <button type="button" data-chan="web_only">Don't message me</button>
+      </div>
+    </fieldset>
+    <p class="help" id="forecast"></p>
+    <button class="primary" value="save">Save</button>
+  </form>
+</dialog>
+
+<div id="toast" class="toast"></div>
+<script src="/app.js" type="module"></script>
+</body>
+</html>
