@@ -1,6 +1,11 @@
 // Seeds a firm with a spread of realistic files, so the dashboard can be seen
 // doing its job. Prints the staff key to sign in with.
-//   node --experimental-sqlite scripts/seed.js
+//   node --experimental-sqlite scripts/seed.js            just seed
+//   node --experimental-sqlite scripts/seed.js --serve    seed, then start the
+//                                                         server and print the
+//                                                         links to open
+import { networkInterfaces } from 'node:os';
+import { rmSync } from 'node:fs';
 import { openDb } from '../src/db.js';
 import { Store } from '../src/store.js';
 import { loadBank, isApplicable } from '../src/questions.js';
@@ -8,11 +13,36 @@ import { applyPrefill } from '../src/prefill.js';
 import { createDispatcher } from '../src/channels/index.js';
 import { startSession } from '../src/conversation.js';
 
+const serve = process.argv.includes('--serve');
+const port = Number(process.env.PORT ?? 8787);
+
+// The address of this machine on the local network, so a link can be opened
+// on a phone on the same wifi. Falls back to localhost.
+function lanAddress() {
+  for (const list of Object.values(networkInterfaces())) {
+    for (const iface of list ?? []) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+    }
+  }
+  return 'localhost';
+}
+const lan = lanAddress();
+// Links have to carry an address the phone can reach, so decide it before
+// seeding - and tell the server the same one, so its links match.
+const baseUrl = process.env.BASE_URL ?? (serve ? `http://${lan}:${port}` : `http://localhost:${port}`);
+process.env.BASE_URL = baseUrl;
+
 const bank = loadBank();
 const dbPath = process.env.DB_PATH ?? 'seed.db';
+process.env.DB_PATH = dbPath;
+// A demo database starts fresh every run. Otherwise a second run silently
+// doubles every file, and the dashboard shows twelve houses instead of six.
+if (!process.env.DB_PATH_KEEP) {
+  for (const suffix of ['', '-wal', '-shm']) rmSync(`${dbPath}${suffix}`, { force: true });
+}
 const store = new Store(openDb(dbPath), bank).configureLinks({
   secret: process.env.LINK_SECRET ?? 'dev-secret-change-me',
-  baseUrl: process.env.BASE_URL ?? 'http://localhost:8787',
+  baseUrl,
 });
 const dispatcher = createDispatcher();
 
@@ -79,7 +109,41 @@ for (const f of FILES) {
   console.log(`${f.ref.padEnd(14)} ${String(store.progress(c.id).percent).padStart(3)}%  ${f.address}`);
 }
 
+// A ready-made seller link for the file that has barely started, so the
+// seller's side can be tried straight away.
+const firstCase = store.listCases({ firmId: firm.id }).find((c) => c.ref === 'HB/2026/0101');
+const firstSeller = firstCase ? store.sellers(firstCase.id)[0] : null;
+const sellerLink = firstSeller ? store.issueAnswerLink(firstCase.id, firstSeller.id) : null;
+
 console.log(`\nDatabase: ${dbPath}`);
 console.log(`Staff key: ${admin.key}`);
-console.log(`\nStart the server against it, then sign in at /staff:`);
-console.log(`  DB_PATH=${dbPath} node --experimental-sqlite src/server.js`);
+
+if (!serve) {
+  console.log(`\nStart the server against it, then sign in at /staff:`);
+  console.log(`  DB_PATH=${dbPath} node --experimental-sqlite src/server.js`);
+  console.log(`\nOr do both in one go next time:  node --experimental-sqlite scripts/seed.js --serve`);
+} else {
+  // The database is closed and re-opened by the server, so both do not hold it.
+  store.db.close();
+  const { createApp } = await import('../src/server.js');
+  const { tick } = await import('../src/conversation.js');
+  const app = createApp({ dbPath });
+  await new Promise((resolve) => app.server.listen(port, '0.0.0.0', resolve));
+  const worker = setInterval(() => tick(app.store, app.sender).catch((e) => console.error('tick failed', e)), 60_000);
+  const stop = () => { clearInterval(worker); app.server.close(() => { try { app.db.close(); } catch {} process.exit(0); }); };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
+
+  const line = '─'.repeat(64);
+  console.log(`\n${line}`);
+  console.log('Running. Press Ctrl+C to stop.\n');
+  console.log('The conveyancer\'s dashboard (paste the staff key above):');
+  console.log(`  on this machine   http://localhost:${port}/staff`);
+  if (lan !== 'localhost') console.log(`  on your phone     http://${lan}:${port}/staff   (same wifi)`);
+  if (sellerLink) {
+    console.log('\nThe seller\'s side - open this on your phone:');
+    console.log(`  ${sellerLink}`);
+  }
+  console.log('\nEvery channel is in dry-run: messages are recorded, not sent.');
+  console.log(line);
+}

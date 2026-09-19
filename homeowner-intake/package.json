@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node --experimental-sqlite src/server.js",
     "demo": "node --experimental-sqlite scripts/demo.js",
+    "try": "node --experimental-sqlite scripts/seed.js --serve",
     "test": "node --experimental-sqlite --test test/*.test.js"
   }
 }

@@ -36,17 +36,17 @@ Requires Node 22.5+. No dependencies to install.
 
 ```bash
 cd homeowner-intake
+npm run try
+```
 
-# The seller journey printed as a WhatsApp conversation
-node --experimental-sqlite scripts/demo.js
+That seeds a firm with six realistic files, starts the server, and prints
+three things: a staff key, the dashboard address, and a seller's magic link.
+It also prints the address on your local network, so you can open both on your
+phone over the same wifi - which is where this is meant to be used.
 
-# A firm with six realistic files, for the conveyancer dashboard
-node --experimental-sqlite scripts/seed.js        # prints a staff key
-DB_PATH=seed.db node --experimental-sqlite src/server.js
-#   seller's app:  the magic link printed when a case is created
-#   dashboard:     http://localhost:8787/staff  (paste the staff key)
-
-node --experimental-sqlite --test test/*.test.js  # 118 tests
+```bash
+npm run demo    # the seller journey printed as a WhatsApp conversation
+npm test        # 151 tests
 ```
 
 Without provider credentials every channel runs dry — messages are recorded
