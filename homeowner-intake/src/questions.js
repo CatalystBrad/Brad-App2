@@ -1,12 +1,14 @@
 // Loads the TA6 question bank and answers the only two questions that matter
 // when you are drip-feeding a form: which questions apply right now, and in
 // what order should they be asked.
+// @node-only-start
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(here, '..', 'data');
+// @node-only-end
 
 // The forms this system knows. A case says which of them it is collecting.
 export const FORMS = {
@@ -27,6 +29,7 @@ export const NEGATIVE_OPTIONS = new Set([
  * Loads one or more forms into a single bank. Question ids are unique across
  * forms, so the drip engine can hold a seller's whole pack at once.
  */
+// @node-only-start
 export function loadBank(forms = Object.keys(FORMS)) {
   const ids = Array.isArray(forms) ? forms : [forms];
   const loaded = ids.map((id) => {
@@ -34,7 +37,12 @@ export function loadBank(forms = Object.keys(FORMS)) {
     if (!spec) throw new Error(`unknown form: ${id}`);
     return { id, ...JSON.parse(readFileSync(join(DATA_DIR, spec.file), 'utf8')) };
   });
+  return buildBank(loaded, ids);
+}
+// @node-only-end
 
+/** Builds a bank from already-loaded form JSON. Pure: runs in a browser too. */
+export function buildBank(loaded, ids = loaded.map((f) => f.id)) {
   const sections = loaded.flatMap((f) => f.sections.map((s) => ({ ...s, form: f.id })));
   const questions = loaded.flatMap((f) => f.questions.map((q) => ({ ...q, form: f.id })));
   const bank = {
