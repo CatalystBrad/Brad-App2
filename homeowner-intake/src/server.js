@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { randomUUID, createHmac, timingSafeEqual } from 'node:crypto';
 import { verifyTwilio, verifyMeta, verifySharedSecret } from './webhooks.js';
+import { checkConfig, clientIp } from './boot.js';
 
 import { openDb } from './db.js';
 import { Store } from './store.js';
@@ -23,7 +24,8 @@ import { handleInbound, askNext, startSession, tick } from './conversation.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(here, '..', 'public');
-const UPLOADS = process.env.UPLOAD_DIR ?? join(here, '..', 'uploads');
+const DATA_DIR = process.env.DATA_DIR ?? join(here, '..');
+const UPLOADS = process.env.UPLOAD_DIR ?? join(DATA_DIR, 'uploads');
 
 const SECRET = process.env.LINK_SECRET ?? 'dev-secret-change-me';
 const BASE_URL = process.env.BASE_URL ?? `http://localhost:${process.env.PORT ?? 8787}`;
@@ -171,7 +173,7 @@ export function createApp({
           // The reason stays on the server. A homeowner cannot act on
           // "bad_signature", and telling someone probing tokens whether one was
           // forged, expired or already used helps them narrow the search.
-          store.event(null, 'link_rejected', { reason: result.reason, ip: req.socket.remoteAddress });
+          store.event(null, 'link_rejected', { reason: result.reason, ip: clientIp(req) });
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
           return res.end(`<!doctype html><html lang="en-GB"><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1">
 <title>Link no longer works</title>
@@ -266,7 +268,7 @@ export function createApp({
         if (!bank.byId.has(itemId)) return json(res, 400, { error: 'unknown_item' });
         store.saveAnswer(s.caseId, itemId, {
           value, status: status ?? 'answered', source: 'web', by: s.participantId,
-          ip: req.socket.remoteAddress, userAgent: req.headers['user-agent'],
+          ip: clientIp(req), userAgent: req.headers['user-agent'],
         });
         return json(res, 200, { ok: true, progress: store.progress(s.caseId) });
       }
@@ -433,7 +435,7 @@ export function createApp({
         const raw = await readBody(req);
         const check = verifyMeta({ appSecret: waAppSecret, rawBody: raw, signature: req.headers['x-hub-signature-256'] });
         if (!check.ok) {
-          store.event(null, 'webhook_rejected', { channel: 'whatsapp', reason: check.reason, ip: req.socket.remoteAddress });
+          store.event(null, 'webhook_rejected', { channel: 'whatsapp', reason: check.reason, ip: clientIp(req) });
           return json(res, check.reason === 'not_configured' ? 503 : 401, { error: check.reason });
         }
         // Meta retries anything slower than 20 seconds, so acknowledge first and
@@ -462,7 +464,7 @@ export function createApp({
           ? verifySharedSecret({ secret: smsAuthToken, given: req.headers['x-webhook-secret'] })
           : verifyTwilio({ authToken: smsAuthToken, url: `${BASE_URL}${req.url}`, params: body, signature: req.headers['x-twilio-signature'] });
         if (!check.ok) {
-          store.event(null, 'webhook_rejected', { channel: 'sms', reason: check.reason, ip: req.socket.remoteAddress });
+          store.event(null, 'webhook_rejected', { channel: 'sms', reason: check.reason, ip: clientIp(req) });
           return json(res, check.reason === 'not_configured' ? 503 : 401, { error: check.reason });
         }
         json(res, 200, { received: true });
@@ -476,7 +478,14 @@ export function createApp({
         return;
       }
 
-      if (path === '/healthz') return json(res, 200, { ok: true, questions: bank.items.length });
+      if (path === '/healthz') {
+        try {
+          db.prepare('SELECT 1').get();
+          return json(res, 200, { ok: true, questions: bank.items.length, uptimeSeconds: Math.round(process.uptime()) });
+        } catch (err) {
+          return json(res, 503, { ok: false, error: 'database_unavailable' });
+        }
+      }
 
       if (req.method === 'GET') return await serveStatic(res, path);
       return json(res, 404, { error: 'not_found' });
@@ -489,14 +498,38 @@ export function createApp({
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const config = checkConfig();
+  for (const w of config.warnings) console.warn(`warning: ${w}`);
+  if (!config.ok) {
+    console.error('Refusing to start. Fix the following and try again:');
+    for (const p of config.problems) console.error(`  - ${p}`);
+    process.exit(1);
+  }
+
   const port = Number(process.env.PORT ?? 8787);
   const app = createApp();
-  app.server.listen(port, () => {
-    console.log(`homeowner-intake listening on ${BASE_URL}`);
-    if (app.sender.dryRun) console.log('WhatsApp sender is in dry-run mode (no WA_TOKEN set) - messages are logged, not sent.');
+  app.server.listen(port, '0.0.0.0', () => {
+    console.log(`homeowner-intake listening on port ${port}, public URL ${BASE_URL}${config.production ? ' (production)' : ''}`);
+    if (app.sender.dryRun) console.log('All channels are in dry-run mode - messages are recorded, not sent.');
   });
-  // The worker: in production run this as a separate scheduled process.
-  setInterval(() => tick(app.store, app.sender).catch((e) => console.error('tick failed', e)), 60_000).unref?.();
+
+  // The worker runs here, in the one process that owns the SQLite file. Run
+  // exactly one instance of this service; a second would double-send nudges.
+  const worker = setInterval(() => tick(app.store, app.sender).catch((e) => console.error('tick failed', e)), 60_000);
+
+  // Let in-flight requests finish and the database close cleanly on a
+  // redeploy, so a seller mid-answer does not lose it.
+  const shutdown = (signal) => {
+    console.log(`${signal} received, shutting down`);
+    clearInterval(worker);
+    app.server.close(() => {
+      try { app.db.close(); } catch { /* already closed */ }
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 /** One row of the chase list: enough to decide what to do about a file. */

@@ -128,7 +128,9 @@ data, Historic England, Ofcom, water company lookup) and the outbound send for
 each channel — every `createSender` posts to the real provider when given
 credentials and records when not.
 
-**Not built:** TA7 (leasehold), inbound email handling, and a hosted deployment.
+**Not built:** TA7 (leasehold), inbound email handling, and staff login sessions
+(fee earners paste a bearer key - see `docs/DEPLOY.md` for what to do before a
+firm relies on that).
 
 ## Before this goes near a real seller
 
@@ -139,13 +141,16 @@ credentials and records when not.
   parts of the source PDF did not yield text. They are marked `"verify": true` in
   the question bank and listed in `docs/VERIFY.md`. Check each against the
   official form.
-- **`LINK_SECRET` and `ADMIN_KEY` must be set** to strong random values. The
-  defaults are development placeholders.
+- **In production the server refuses to start** with a placeholder
+  `LINK_SECRET` or `ADMIN_KEY`, a plain-http `BASE_URL`, or an in-memory
+  database - and says which. `docs/DEPLOY.md` has the ten-minute path to a
+  live https URL on Fly.io, and the Docker route for anywhere else.
 
 ## Documentation
 
 | | |
 |---|---|
+| `docs/DEPLOY.md` | Ten minutes to a live URL: env vars, Fly.io, Docker, backups, first-run checklist |
 | `docs/PROCESS.md` | The process design and the reasoning behind it |
 | `docs/WHATSAPP.md` | Go-live pack: the four templates, setup runbook, test checklist |
 | `docs/COMPLIANCE.md` | Licensing, UK GDPR, e-signatures, messaging rules, security |

@@ -1,4 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
@@ -158,6 +160,8 @@ const ADDED_COLUMNS = [
 ];
 
 export function openDb(path = ':memory:') {
+  // A fresh volume is empty; make the directory rather than fail on first boot.
+  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec(SCHEMA);
   for (const [table, column, type] of ADDED_COLUMNS) {
