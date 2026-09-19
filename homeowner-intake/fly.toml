@@ -1,0 +1,43 @@
+# Fly.io: one small machine, one persistent volume, https for free.
+#   fly launch --no-deploy        (accept the app name, say no to Postgres/Redis)
+#   fly volumes create intake_data --size 1
+#   fly secrets set LINK_SECRET=... ADMIN_KEY=... WA_VERIFY_TOKEN=... BASE_URL=https://<app>.fly.dev
+#   fly deploy
+app = "homeowner-intake"
+primary_region = "lhr"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8787"
+  DATA_DIR = "/data"
+  DB_PATH = "/data/intake.db"
+  UPLOAD_DIR = "/data/uploads"
+  TRUST_PROXY = "1"
+
+[[mounts]]
+  source = "intake_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = false      # the worker must keep running to send nudges
+  auto_start_machines = true
+  min_machines_running = 1        # exactly one: SQLite is single-writer
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

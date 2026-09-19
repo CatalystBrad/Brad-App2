@@ -1,0 +1,14 @@
+{
+  "name": "homeowner-intake",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Drip-fed, multi-channel property information collection (TA6) for homeowners who have no time to fill in forms",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node --experimental-sqlite src/server.js",
+    "demo": "node --experimental-sqlite scripts/demo.js",
+    "try": "node --experimental-sqlite scripts/seed.js --serve",
+    "test": "node --experimental-sqlite --test test/*.test.js"
+  }
+}

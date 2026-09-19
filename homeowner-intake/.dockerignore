@@ -1,0 +1,11 @@
+node_modules
+test
+scripts
+docs
+out
+uploads
+*.db
+*.db-wal
+*.db-shm
+.git
+README.md
