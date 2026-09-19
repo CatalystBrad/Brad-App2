@@ -267,6 +267,9 @@ test('confirming pre-filled data over WhatsApp turns it into the seller\'s own a
 test('"not quite" sends them somewhere they can correct it', async () => {
   const { store, caseId, sender, seller } = setup();
   await applyPrefill(store, caseId);
+  await startSession(store, sender, seller.id, { template: 'resume' });
+  await handleInbound(store, sender, inbound({ text: 'go' }));
+  assert.equal(lastAsked(store, seller.id).id, '1.1');
   const res = await handleInbound(store, sender, { from: PHONE, kind: 'choice', itemId: '1.1', value: wa.CONFIRM_NO });
   assert.equal(res.correcting, '1.1');
   assert.match(sender.sent.at(-1).text.body, /put us right here/);
@@ -547,4 +550,52 @@ test('uploading a document from the paperwork list marks it done', async () => {
   assert.equal(after.find((d) => d.id === '2.5::doc').done, true);
   assert.equal(store.attachments(caseId).length, 1);
   assert.equal(store.progress(caseId).paperworkOutstanding, before.filter((d) => !d.done).length - 1);
+});
+
+
+test('a button reply for a question that was not asked is refused, not stored', async () => {
+  const { store, caseId, sender, seller } = setup();
+  await startSession(store, sender, seller.id, { template: 'resume' });
+  await handleInbound(store, sender, inbound({ text: 'go' }));
+  const asked = lastAsked(store, seller.id);
+  assert.notEqual(asked.id, '3.1');
+
+  // A forged interactive reply naming a different question, and one naming a
+  // question that does not exist at all.
+  for (const itemId of ['3.1', 'not-a-question']) {
+    const res = await handleInbound(store, sender, { from: PHONE, kind: 'choice', itemId, value: 'Yes' });
+    assert.equal(res.ignored, 'unexpected_item', `${itemId} should be refused`);
+    assert.equal(store.answers(caseId)[itemId], undefined, `${itemId} must not be written`);
+  }
+  assert.ok(store.events(caseId).some((e) => e.kind === 'reply_rejected'));
+  // The genuine reply still works.
+  await handleInbound(store, sender, { from: PHONE, kind: 'choice', itemId: asked.id, value: asked.t === 'yesno' ? 'No' : asked.opts?.[0] ?? 'No' });
+  assert.ok(store.answers(caseId)[asked.id]);
+});
+
+test('a message on a firm\'s own number can only reach that firm\'s sellers', async () => {
+  const store = new Store(openDb(), bank).configureLinks({ secret: 's', baseUrl: 'https://app.test' });
+  const firmA = store.createFirm({ name: 'Firm A', smsSender: '+441134960001' });
+  const firmB = store.createFirm({ name: 'Firm B', smsSender: '+441134960002' });
+  const caseA = store.createCase({ firmId: firmA.id, address: '1 A Street' });
+  const caseB = store.createCase({ firmId: firmB.id, address: '2 B Street' });
+  // The same person is selling with both firms - same mobile on both files.
+  const sellerA = store.addParticipant(caseA.id, { name: 'Sam', phone: '447700900123', cadence: { channel: 'sms', window: { start: '00:00', end: '23:59' } } });
+  const sellerB = store.addParticipant(caseB.id, { name: 'Sam', phone: '447700900123', cadence: { channel: 'sms', window: { start: '00:00', end: '23:59' } } });
+  // B was active most recently, so an unscoped lookup would pick B.
+  store.db.prepare('UPDATE participants SET last_activity_at = ? WHERE id = ?').run(new Date().toISOString(), sellerB.id);
+  store.db.prepare('UPDATE participants SET last_activity_at = ? WHERE id = ?').run(new Date(Date.now() - 86400000).toISOString(), sellerA.id);
+
+  assert.equal(store.participantByPhone('447700900123').id, sellerB.id, 'unscoped picks the most recent');
+  assert.equal(store.participantByPhone('447700900123', { firmId: firmA.id }).id, sellerA.id, 'scoped to A picks A');
+  assert.equal(store.firmBySender('sms', '+441134960001').id, firmA.id);
+  assert.equal(store.firmBySender('sms', '441134960001').id, firmA.id, 'normalised forms match too');
+  assert.equal(store.firmBySender('sms', '+447000000000'), null, 'the shared platform number matches no firm');
+
+  // A reply that arrived on Firm A's number lands on Firm A's file.
+  const sender = wa.createSender({});
+  await startSession(store, sender, sellerA.id, { ignoreWindow: true });
+  await handleInbound(store, sender, { from: '+447700900123', channel: 'sms', kind: 'text', text: 'PAUSE', receivedOn: '+441134960001' });
+  assert.ok(store.getParticipant(sellerA.id).cadence.pauseUntil, 'A should be paused');
+  assert.equal(store.getParticipant(sellerB.id).cadence.pauseUntil, null, 'B must be untouched');
 });

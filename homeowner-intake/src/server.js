@@ -7,6 +7,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { randomUUID, createHmac, timingSafeEqual } from 'node:crypto';
+import { verifyTwilio, verifyMeta, verifySharedSecret } from './webhooks.js';
 
 import { openDb } from './db.js';
 import { Store } from './store.js';
@@ -27,13 +28,22 @@ const UPLOADS = process.env.UPLOAD_DIR ?? join(here, '..', 'uploads');
 const SECRET = process.env.LINK_SECRET ?? 'dev-secret-change-me';
 const BASE_URL = process.env.BASE_URL ?? `http://localhost:${process.env.PORT ?? 8787}`;
 const WA_VERIFY_TOKEN = process.env.WA_VERIFY_TOKEN ?? 'dev-verify';
-const WA_APP_SECRET = process.env.WA_APP_SECRET ?? null;
+// Seller sessions and export links both die after this, however they were minted.
+const SESSION_TTL_MS = 30 * 86400000;
+const EXPORT_TOKEN_TTL_MS = 10 * 60000;
 // Bootstrap key for creating firms. Every other staff action uses a firm key.
 const ADMIN_KEY = process.env.ADMIN_KEY ?? 'dev-admin-key';
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 
-export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender } = {}) {
+export function createApp({
+  dbPath = process.env.DB_PATH ?? ':memory:',
+  sender,
+  // Inbound webhooks are refused outright when these are absent. There is no
+  // "development mode" for accepting unsigned traffic: it is too easy to ship.
+  waAppSecret = process.env.WA_APP_SECRET ?? null,
+  smsAuthToken = process.env.SMS_AUTH_TOKEN ?? null,
+} = {}) {
   const db = openDb(dbPath);
   const bank = loadBank();
   const store = new Store(db, bank).configureLinks({ secret: SECRET, baseUrl: BASE_URL });
@@ -68,32 +78,51 @@ export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender }
   };
 
   // Session cookie = the redeemed magic link, signed so it cannot be forged.
-  const signSession = (caseId, participantId, purpose) => {
-    const body = `${caseId}.${participantId}.${purpose}`;
-    return `${body}.${createHmac('sha256', SECRET).update(body).digest('base64url').slice(0, 27)}`;
+  const mac = (body) => createHmac('sha256', SECRET).update(body).digest('base64url').slice(0, 27);
+  const macMatches = (body, sig) => {
+    const a = Buffer.from(String(sig ?? '')); const b = Buffer.from(mac(body));
+    return a.length === b.length && timingSafeEqual(a, b);
   };
-  const readSession = (req) => {
+
+  // A cookie is a credential, so it carries its own expiry and the server
+  // enforces it. The browser's Max-Age is a convenience, not a control.
+  const signSession = (caseId, participantId, purpose, now = Date.now()) => {
+    const exp = now + SESSION_TTL_MS;
+    const body = `${caseId}.${participantId}.${purpose}.${exp}`;
+    return `${body}.${mac(body)}`;
+  };
+  const readSession = (req, now = Date.now()) => {
     const cookie = /(?:^|;\s*)hi_session=([^;]+)/.exec(req.headers.cookie ?? '')?.[1];
     if (!cookie) return null;
     const parts = decodeURIComponent(cookie).split('.');
-    if (parts.length !== 4) return null;
-    const [caseId, participantId, purpose, sig] = parts;
-    const expect = createHmac('sha256', SECRET).update(`${caseId}.${participantId}.${purpose}`).digest('base64url').slice(0, 27);
-    const a = Buffer.from(sig); const b = Buffer.from(expect);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    if (parts.length !== 5) return null;
+    const [caseId, participantId, purpose, exp, sig] = parts;
+    if (!macMatches(`${caseId}.${participantId}.${purpose}.${exp}`, sig)) return null;
+    if (!/^\d+$/.test(exp) || Number(exp) < now) return null;
     return { caseId, participantId, purpose };
   };
 
-  const bearer = (req, url = null) =>
-    /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? '')?.[1]?.trim()
-    // A link opened in a new tab cannot carry a header. Only the export route
-    // passes a url here, and only for a GET.
-    ?? (url ? url.searchParams.get('key') : null)
-    ?? null;
+  // A short-lived, single-purpose token for opening the printable export in a
+  // new tab - so the firm's master key never has to travel in a URL.
+  const signExportToken = (caseId, firmId, now = Date.now()) => {
+    const exp = now + EXPORT_TOKEN_TTL_MS;
+    const body = `${caseId}.${firmId}.${exp}`;
+    return `${body}.${mac(body)}`;
+  };
+  const readExportToken = (token, now = Date.now()) => {
+    const parts = String(token ?? '').split('.');
+    if (parts.length !== 4) return null;
+    const [caseId, firmId, exp, sig] = parts;
+    if (!macMatches(`${caseId}.${firmId}.${exp}`, sig)) return null;
+    if (!/^\d+$/.test(exp) || Number(exp) < now) return null;
+    return { caseId, firmId };
+  };
+
+  const bearer = (req) => /^Bearer\s+(.+)$/i.exec(req.headers.authorization ?? '')?.[1]?.trim() ?? null;
 
   /** Staff session for the conveyancer side. Always scopes to one firm. */
-  const staff = (req, res, url = null) => {
-    const who = store.staffByKey(bearer(req, url));
+  const staff = (req, res) => {
+    const who = store.staffByKey(bearer(req));
     if (!who) {
       json(res, 401, { error: 'not_authorised', hint: 'send Authorization: Bearer <staff key>' });
       return null;
@@ -102,8 +131,8 @@ export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender }
   };
 
   /** Loads a case only if it belongs to the caller's firm. */
-  const ownedCase = (req, res, caseId, url = null) => {
-    const who = staff(req, res, url);
+  const ownedCase = (req, res, caseId) => {
+    const who = staff(req, res);
     if (!who) return null;
     if (!store.caseBelongsTo(caseId, who.firm_id)) {
       // Deliberately the same answer whether the case is missing or another
@@ -359,17 +388,35 @@ export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender }
         return json(res, 200, result);
       }
 
+      const exportTokenMatch = /^\/api\/cases\/([\w-]+)\/export-token$/.exec(path);
+      if (exportTokenMatch && req.method === 'POST') {
+        const who = ownedCase(req, res, exportTokenMatch[1]); if (!who) return;
+        return json(res, 200, { token: signExportToken(exportTokenMatch[1], who.firm_id), expiresInSeconds: EXPORT_TOKEN_TTL_MS / 1000 });
+      }
+
       const exportMatch = /^\/api\/cases\/([\w-]+)\/export\.(json|html)$/.exec(path);
       if (exportMatch && req.method === 'GET') {
-        const who = ownedCase(req, res, exportMatch[1], url); if (!who) return;
-        const data = buildExport(store, exportMatch[1]);
+        const caseId = exportMatch[1];
+        const viaToken = readExportToken(url.searchParams.get('t'));
+        if (viaToken) {
+          if (viaToken.caseId !== caseId || !store.caseBelongsTo(caseId, viaToken.firmId)) return json(res, 404, { error: 'not_found' });
+        } else {
+          const who = ownedCase(req, res, caseId); if (!who) return;
+        }
+        const data = buildExport(store, caseId);
         if (exportMatch[2] === 'json') return json(res, 200, data);
         const html = toHtml(data);
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+          'referrer-policy': 'no-referrer',
+        });
         return res.end(html);
       }
 
+      // The worker runs on its own timer; this is for operators, not the public.
       if (path === '/api/tick' && req.method === 'POST') {
+        if (bearer(req) !== ADMIN_KEY) return json(res, 401, { error: 'not_authorised' });
         return json(res, 200, { results: await tick(store, waSender) });
       }
 
@@ -384,11 +431,10 @@ export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender }
 
       if (path === '/webhooks/whatsapp' && req.method === 'POST') {
         const raw = await readBody(req);
-        if (WA_APP_SECRET) {
-          const expected = `sha256=${createHmac('sha256', WA_APP_SECRET).update(raw).digest('hex')}`;
-          const given = req.headers['x-hub-signature-256'] ?? '';
-          const a = Buffer.from(expected); const b = Buffer.from(String(given));
-          if (a.length !== b.length || !timingSafeEqual(a, b)) return json(res, 401, { error: 'bad_signature' });
+        const check = verifyMeta({ appSecret: waAppSecret, rawBody: raw, signature: req.headers['x-hub-signature-256'] });
+        if (!check.ok) {
+          store.event(null, 'webhook_rejected', { channel: 'whatsapp', reason: check.reason, ip: req.socket.remoteAddress });
+          return json(res, check.reason === 'not_configured' ? 503 : 401, { error: check.reason });
         }
         // Meta retries anything slower than 20 seconds, so acknowledge first and
         // process after.
@@ -408,9 +454,17 @@ export function createApp({ dbPath = process.env.DB_PATH ?? ':memory:', sender }
       if (path === '/webhooks/sms' && req.method === 'POST') {
         const raw = await readBody(req);
         const contentType = req.headers['content-type'] ?? '';
-        const body = contentType.includes('json')
+        const isJson = contentType.includes('json');
+        const body = isJson
           ? JSON.parse(raw.toString('utf8') || '{}')
           : Object.fromEntries(new URLSearchParams(raw.toString('utf8')));
+        const check = isJson
+          ? verifySharedSecret({ secret: smsAuthToken, given: req.headers['x-webhook-secret'] })
+          : verifyTwilio({ authToken: smsAuthToken, url: `${BASE_URL}${req.url}`, params: body, signature: req.headers['x-twilio-signature'] });
+        if (!check.ok) {
+          store.event(null, 'webhook_rejected', { channel: 'sms', reason: check.reason, ip: req.socket.remoteAddress });
+          return json(res, check.reason === 'not_configured' ? 503 : 401, { error: check.reason });
+        }
         json(res, 200, { received: true });
         for (const msg of smsChannel.parseInbound(body)) {
           try {

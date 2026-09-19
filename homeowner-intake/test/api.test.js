@@ -2,9 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/server.js';
 import { createDispatcher } from '../src/channels/index.js';
+import { twilioSignature, metaSignature } from '../src/webhooks.js';
 
-async function listen() {
-  const app = createApp({ sender: createDispatcher() });
+const WA_SECRET = 'test-meta-app-secret';
+const SMS_TOKEN = 'test-twilio-auth-token';
+
+async function listen(opts = {}) {
+  const app = createApp({ sender: createDispatcher(), waAppSecret: WA_SECRET, smsAuthToken: SMS_TOKEN, ...opts });
   await new Promise((r) => app.server.listen(0, r));
   const base = `http://127.0.0.1:${app.server.address().port}`;
   return { app, base, close: () => new Promise((r) => app.server.close(r)) };
@@ -230,9 +234,16 @@ test('the WhatsApp webhook verifies, then drives the conversation', async (t) =>
   });
 
   const before = app.sender.sent.length;
+  const raw = JSON.stringify({ entry: [{ changes: [{ value: { messages: [{ from: '447700900999', id: 'wamid.x', type: 'text', text: { body: 'ready' } }] } }] }] });
+
+  // Unsigned, and wrongly signed, are both refused before anything is read.
+  assert.equal((await fetch(`${base}/webhooks/whatsapp`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: raw })).status, 401);
+  assert.equal((await fetch(`${base}/webhooks/whatsapp`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-hub-signature-256': 'sha256=deadbeef' }, body: raw })).status, 401);
+  assert.equal(app.sender.sent.length, before, 'nothing may be sent for an unverified message');
+
   const post = await fetch(`${base}/webhooks/whatsapp`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ entry: [{ changes: [{ value: { messages: [{ from: '447700900999', id: 'wamid.x', type: 'text', text: { body: 'ready' } }] } }] }] }),
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-hub-signature-256': metaSignature(WA_SECRET, raw) },
+    body: raw,
   });
   assert.equal(post.status, 200);
   await new Promise((r) => setTimeout(r, 120));   // the webhook is acknowledged before processing
@@ -252,11 +263,21 @@ test('the SMS webhook drives the same conversation', async (t) => {
     }),
   });
   const before = app.sender.sent.length;
-  const res = await fetch(`${base}/webhooks/sms`, {
+  const params = { From: '+447700900444', Body: 'GO', MessageSid: 'SM1', NumMedia: '0' };
+  const send = (headers) => fetch(`${base}/webhooks/sms`, {
     method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ From: '+447700900444', Body: 'GO', MessageSid: 'SM1', NumMedia: '0' }),
+    headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
+    body: new URLSearchParams(params),
   });
+
+  // The whole finding: an unsigned POST used to answer questions as the seller.
+  assert.equal((await send({})).status, 401);
+  assert.equal((await send({ 'x-twilio-signature': 'nonsense' })).status, 401);
+  assert.equal(app.sender.sent.length, before, 'a spoofed text must not drive the conversation');
+
+  // Twilio signs the URL it was configured with; the server reconstructs it from BASE_URL.
+  const url = `${process.env.BASE_URL ?? 'http://localhost:8787'}/webhooks/sms`;
+  const res = await send({ 'x-twilio-signature': twilioSignature(SMS_TOKEN, url, params) });
   assert.equal(res.status, 200);
   await new Promise((r) => setTimeout(r, 120));
   assert.ok(app.sender.sent.length > before, 'an inbound text should produce a reply');
@@ -403,4 +424,92 @@ test('a bad link tells the seller what to do, not why it failed', async (t) => {
   }
   // It is still recorded, so a firm can see a link being hammered.
   assert.ok(app.store.events(null).some((e) => e.kind === 'link_rejected'), 'the rejection should be logged');
+});
+
+
+test('a webhook with no secret configured refuses everything rather than accepting everything', async (t) => {
+  const { base, close } = await listen({ waAppSecret: null, smsAuthToken: null });
+  t.after(close);
+  const wa = await fetch(`${base}/webhooks/whatsapp`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(wa.status, 503);
+  assert.equal((await wa.json()).error, 'not_configured');
+  const sms = await fetch(`${base}/webhooks/sms`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'From=%2B447700900444&Body=Yes' });
+  assert.equal(sms.status, 503);
+});
+
+test('a JSON SMS provider authenticates with a shared-secret header', async (t) => {
+  const { app, base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base);
+  await jsonFetch(base, '/api/cases', {
+    method: 'POST', headers: a.headers,
+    body: JSON.stringify({ address: '8 Json Road', seller: { name: 'Kim', phone: '447700900555' }, cadence: { channel: 'sms', window: { start: '00:00', end: '23:59' } } }),
+  });
+  const body = JSON.stringify({ From: '+447700900555', Body: 'GO' });
+  assert.equal((await fetch(`${base}/webhooks/sms`, { method: 'POST', headers: { 'content-type': 'application/json' }, body })).status, 401);
+  assert.equal((await fetch(`${base}/webhooks/sms`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-webhook-secret': 'wrong' }, body })).status, 401);
+  const before = app.sender.sent.length;
+  assert.equal((await fetch(`${base}/webhooks/sms`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-webhook-secret': SMS_TOKEN }, body })).status, 200);
+  await new Promise((r) => setTimeout(r, 120));
+  assert.ok(app.sender.sent.length > before);
+});
+
+test('the worker trigger needs the admin key', async (t) => {
+  const { base, close } = await listen();
+  t.after(close);
+  assert.equal((await jsonFetch(base, '/api/tick', { method: 'POST' })).status, 401);
+  assert.equal((await jsonFetch(base, '/api/tick', { method: 'POST', headers: { authorization: 'Bearer dev-admin-key' } })).status, 200);
+});
+
+test('a seller session expires on the server, whatever the browser thinks', async (t) => {
+  const { base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base);
+  const created = await jsonFetch(base, '/api/cases', {
+    method: 'POST', headers: a.headers,
+    body: JSON.stringify({ address: '9 Cookie Close', seller: { name: 'Lee', phone: '447700900666' } }),
+  });
+  const redeem = await fetch(`${base}/s/${created.body.link.split('/s/')[1]}`, { redirect: 'manual' });
+  const cookie = redeem.headers.getSetCookie()[0].split(';')[0];
+  const value = decodeURIComponent(cookie.split('=')[1]);
+  const parts = value.split('.');
+  assert.equal(parts.length, 5, 'the cookie carries an expiry');
+  assert.ok(Number(parts[3]) > Date.now(), 'expiry is in the future');
+
+  // Rewinding the expiry breaks the signature; the old four-part shape is refused too.
+  const rewound = [...parts.slice(0, 3), String(Date.now() - 1000), parts[4]].join('.');
+  assert.equal((await jsonFetch(base, '/api/me', { headers: { cookie: `hi_session=${encodeURIComponent(rewound)}` } })).status, 401);
+  const legacy = [...parts.slice(0, 3), parts[4]].join('.');
+  assert.equal((await jsonFetch(base, '/api/me', { headers: { cookie: `hi_session=${encodeURIComponent(legacy)}` } })).status, 401);
+  assert.equal((await jsonFetch(base, '/api/me', { headers: { cookie } })).status, 200);
+});
+
+test('the staff key no longer travels in a URL; the export uses a short-lived token', async (t) => {
+  const { base, close } = await listen();
+  t.after(close);
+  const a = await onboard(base);
+  const b = await onboard(base, 'Other Firm');
+  const created = await jsonFetch(base, '/api/cases', {
+    method: 'POST', headers: a.headers,
+    body: JSON.stringify({ address: '10 Token Terrace', seller: { name: 'Ali', phone: '447700900777' } }),
+  });
+  const caseId = created.body.caseId;
+
+  // The old query-parameter path is gone.
+  const key = a.headers.authorization.split(' ')[1];
+  assert.equal((await fetch(`${base}/api/cases/${caseId}/export.html?key=${encodeURIComponent(key)}`)).status, 401);
+
+  // A token is minted by the owning firm, is bound to that case, and expires.
+  const minted = await jsonFetch(base, `/api/cases/${caseId}/export-token`, { method: 'POST', headers: a.headers });
+  assert.equal(minted.status, 200);
+  assert.ok(minted.body.expiresInSeconds <= 600);
+  const ok = await fetch(`${base}/api/cases/${caseId}/export.html?t=${encodeURIComponent(minted.body.token)}`);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('cache-control'), 'no-store');
+  assert.equal(ok.headers.get('referrer-policy'), 'no-referrer');
+
+  // Another firm cannot mint one for this case, and a tampered token is refused.
+  assert.equal((await jsonFetch(base, `/api/cases/${caseId}/export-token`, { method: 'POST', headers: b.headers })).status, 404);
+  const tampered = minted.body.token.replace(/\.(\d+)\./, (_, exp) => `.${Number(exp) + 999999}.`);
+  assert.equal((await fetch(`${base}/api/cases/${caseId}/export.html?t=${encodeURIComponent(tampered)}`)).status, 401);
 });

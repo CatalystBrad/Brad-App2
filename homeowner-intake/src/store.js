@@ -269,13 +269,39 @@ export class Store {
     }
   }
 
-  participantByPhone(phone) {
+  /**
+   * The firm whose sender a message arrived on. A firm with its own WhatsApp
+   * number or SMS sender gets its inbound traffic scoped to its own files; a
+   * message on the shared platform number matches nobody here and falls back
+   * to the global lookup.
+   */
+  firmBySender(channel, sender) {
+    if (!sender) return null;
+    const column = channel === 'whatsapp' ? 'wa_phone_id' : channel === 'sms' ? 'sms_sender' : null;
+    if (!column) return null;
+    const norm = String(sender).replace(/\D/g, '');
+    const row = this.db.prepare(
+      `SELECT id FROM firms WHERE ${column} = ? OR replace(replace(replace(${column},' ',''),'+',''),'-','') = ?`
+    ).get(String(sender), norm);
+    return row ? this.getFirm(row.id) : null;
+  }
+
+  participantByPhone(phone, { firmId = null } = {}) {
     const digits = String(phone ?? '').replace(/\D/g, '').slice(-10);
     if (!digits) return null;
-    const row = this.db.prepare(
-      `SELECT id FROM participants WHERE replace(replace(replace(phone,' ',''),'+',''),'-','') LIKE ?
-       ORDER BY last_activity_at DESC LIMIT 1`
-    ).get(`%${digits}`);
+    // Two sellers at different firms can share a phone number (a couple selling
+    // two houses, a landlord). Holding the lookup to the firm whose number the
+    // message came in on stops one firm's reply landing on another's file.
+    const row = firmId
+      ? this.db.prepare(
+          `SELECT p.id FROM participants p JOIN cases c ON c.id = p.case_id
+           WHERE c.firm_id = ? AND replace(replace(replace(p.phone,' ',''),'+',''),'-','') LIKE ?
+           ORDER BY p.last_activity_at DESC LIMIT 1`
+        ).get(firmId, `%${digits}`)
+      : this.db.prepare(
+          `SELECT id FROM participants WHERE replace(replace(replace(phone,' ',''),'+',''),'-','') LIKE ?
+           ORDER BY last_activity_at DESC LIMIT 1`
+        ).get(`%${digits}`);
     return row ? this.getParticipant(row.id) : null;
   }
 

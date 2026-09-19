@@ -94,8 +94,9 @@ changing an answer after sign-off un-signs the form is there for the same reason
 - Opt-out must be honoured immediately and permanently.
 - Templates must not be misleading about who is contacting the seller. The
   invite names the firm.
-- Webhook payloads must be signature-verified (`X-Hub-Signature-256`) — set
-  `WA_APP_SECRET` in production; the server checks it when present.
+- Webhook payloads are signature-verified (`X-Hub-Signature-256`) on every
+  call. `WA_APP_SECRET` is mandatory: without it the webhook returns 503 and
+  processes nothing. There is no mode that accepts unsigned traffic.
 
 ## Security
 
@@ -103,8 +104,33 @@ changing an answer after sign-off un-signs the form is there for the same reason
   development placeholder and the server should refuse to start without it set.
 - Magic-link tokens are hashed at rest (SHA-256); session cookies are HMAC-signed,
   `HttpOnly`, `SameSite=Lax`, and `Secure` when served over HTTPS.
-- The conveyancer endpoints (`POST /api/cases`, `GET /api/cases`, exports) are
-  **unauthenticated in this prototype** and must sit behind staff authentication
-  before deployment.
+- Every conveyancer endpoint requires a staff key; every seller endpoint
+  requires a signed session cookie that carries its own expiry (30 days) and is
+  checked on the server, not just by the browser. The worker trigger
+  (`POST /api/tick`) requires `ADMIN_KEY`.
+- The printable export opens in a new tab with a ten-minute, case-bound token
+  minted by the dashboard. The staff key itself never appears in a URL, so it
+  never lands in browser history, proxy logs or a bookmark.
+
+## Inbound messages
+
+Anyone who can reach the webhook URL and knows a seller's phone number could
+otherwise answer that seller's questions, park them, opt them out, or file
+documents on their case — and un-sign a signed form. So:
+
+- `/webhooks/sms` verifies Twilio's `X-Twilio-Signature` (HMAC-SHA1 over the
+  configured URL plus sorted parameters, using `SMS_AUTH_TOKEN`). Twilio signs
+  the URL you configure in its console, which must equal `BASE_URL` +
+  `/webhooks/sms` exactly, including scheme. A JSON provider that does not sign
+  sends the same token in an `X-Webhook-Secret` header instead.
+- Both webhooks return 503 when their secret is not configured. Rejections are
+  logged as `webhook_rejected` events with the reason and source IP.
+- A button reply is only accepted for the question actually asked of that
+  seller. A reply naming any other question — or one that does not exist — is
+  logged as `reply_rejected` and the open question is re-sent.
+- A message arriving on a firm's own number (`firms.sms_sender`,
+  `firms.wa_phone_id`) is matched only against that firm's sellers, so a phone
+  number shared across two firms' files cannot route one firm's reply onto the
+  other's.
 - Uploads are written with generated filenames; add virus scanning and a
   content-type allow-list before accepting files from the public internet.

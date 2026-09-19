@@ -107,7 +107,7 @@ async function openCase(id) {
   $('dBody').innerHTML = `
     <div class="actions">
       <button class="primary" data-act="nudge">Nudge the seller now</button>
-      <a class="secondary" style="display:inline-flex;align-items:center;text-decoration:none" href="/api/cases/${id}/export.html?key=${encodeURIComponent(key)}" target="_blank" rel="noopener">Open the form</a>
+      <button class="secondary" data-act="open">Open the form</button>
       <button class="secondary" data-act="copy">Copy the seller's link</button>
     </div>
 
@@ -160,6 +160,12 @@ async function openCase(id) {
     toast(res.deferred ? 'Queued — outside the seller\'s chosen hours' : 'Nudge sent');
     ev.target.disabled = false;
     load();
+  });
+  $('dBody').querySelector('[data-act="open"]').addEventListener('click', async () => {
+    // The staff key never goes in a URL. Ask for a ten-minute token for this
+    // one file instead, so a bookmarked or logged link is worthless later.
+    const { token } = await api(`/api/cases/${id}/export-token`, { method: 'POST' });
+    window.open(`/api/cases/${id}/export.html?t=${encodeURIComponent(token)}`, '_blank', 'noopener');
   });
   $('dBody').querySelector('[data-act="copy"]').addEventListener('click', async () => {
     const res = await api(`/api/cases/${id}/invite`, { method: 'POST' });

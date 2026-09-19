@@ -89,7 +89,10 @@ export function parseInbound(body) {
   for (const msg of entries) {
     if (!msg?.From) continue;
     const from = String(msg.From).replace(/^whatsapp:/, '');
-    const common = { from, messageId: msg.MessageSid ?? msg.id ?? null, at: new Date().toISOString(), channel: 'sms' };
+    const common = {
+      from, messageId: msg.MessageSid ?? msg.id ?? null, at: new Date().toISOString(), channel: 'sms',
+      receivedOn: msg.To ? String(msg.To).replace(/^whatsapp:/, '') : null,
+    };
     if (Number(msg.NumMedia ?? 0) > 0) {
       out.push({ ...common, kind: 'media', mediaId: msg.MediaUrl0, mime: msg.MediaContentType0 ?? 'image/jpeg', filename: null });
     } else {

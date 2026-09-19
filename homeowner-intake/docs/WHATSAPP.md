@@ -91,7 +91,7 @@ follows, inside the 24-hour window.
 WA_TOKEN=            # permanent system-user token, not the 24-hour test token
 WA_PHONE_ID=         # phone number ID from WhatsApp Manager
 WA_VERIFY_TOKEN=     # any random string; must match what you paste into Meta
-WA_APP_SECRET=       # app secret, so webhook signatures are verified
+WA_APP_SECRET=       # app secret - REQUIRED; the webhook refuses everything without it
 BASE_URL=https://intake.yourfirm.co.uk
 LINK_SECRET=         # long random value - see below
 ADMIN_KEY=           # bootstrap key for creating firms
@@ -100,9 +100,15 @@ ADMIN_KEY=           # bootstrap key for creating firms
 Webhook callback URL: `https://<your host>/webhooks/whatsapp`, verify token as
 above. Subscribe to the **messages** field only.
 
-With `WA_APP_SECRET` set, the server verifies `X-Hub-Signature-256` on every
-inbound call and rejects anything unsigned. Set it: without it, anyone who finds
-the URL can post messages as any seller.
+The server verifies `X-Hub-Signature-256` on every inbound call and rejects
+anything unsigned or wrongly signed. `WA_APP_SECRET` is mandatory: with it
+unset the webhook returns 503 and nothing is processed. This is deliberate —
+the alternative is that anyone who finds the URL can post messages as any
+seller.
+
+For SMS the equivalent is `SMS_AUTH_TOKEN`, which verifies Twilio's
+`X-Twilio-Signature`. Twilio signs the exact URL configured in its console, so
+that URL must be `BASE_URL` + `/webhooks/sms` character for character.
 
 A firm can send from its own number by setting `firms.wa_phone_id` — otherwise
 everything goes out on the platform number.

@@ -178,9 +178,10 @@ export async function startSession(store, sender, participantId, { template = 'r
  * then ask the next thing.
  */
 export async function handleInbound(store, sender, msg, { now = new Date() } = {}) {
+  const firm = msg.receivedOn ? store.firmBySender(msg.channel ?? 'whatsapp', msg.receivedOn) : null;
   const participant = msg.channel === 'email' && msg.email
     ? store.participantByEmail(msg.email)
-    : store.participantByPhone(msg.from);
+    : store.participantByPhone(msg.from, { firmId: firm?.id ?? null });
   if (!participant) return { ignored: 'unknown_sender' };
 
   const inboundChannel = msg.channel ?? participant.cadence.channel;
@@ -200,6 +201,13 @@ export async function handleInbound(store, sender, msg, { now = new Date() } = {
   }
 
   if (msg.kind === 'choice' && msg.itemId) {
+    // A button reply names the item it answers, but the client is not trusted
+    // to choose: it must be the question we actually asked this person. A
+    // forged id would otherwise write any value to any question on the form.
+    if (!store.bank.byId.has(msg.itemId) || asked?.id !== msg.itemId) {
+      store.event(caseId, 'reply_rejected', { itemId: msg.itemId, asked: asked?.id ?? null, channel: inboundChannel });
+      return { ignored: 'unexpected_item', then: await askNext(store, sender, participant.id, { force: true }) };
+    }
     if (msg.value === CONFIRM_YES) {
       const current = store.answers(caseId)[msg.itemId];
       store.saveAnswer(caseId, msg.itemId, { value: current?.value ?? 'Confirmed', source: inboundChannel, by: participant.id });

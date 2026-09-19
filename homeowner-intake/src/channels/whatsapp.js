@@ -213,7 +213,10 @@ export function parseInbound(webhookBody) {
       const value = change.value ?? {};
       for (const msg of value.messages ?? []) {
         const from = msg.from;
-        const common = { from, messageId: msg.id, at: msg.timestamp ? new Date(+msg.timestamp * 1000).toISOString() : null };
+        const common = {
+          from, messageId: msg.id, at: msg.timestamp ? new Date(+msg.timestamp * 1000).toISOString() : null,
+          channel: 'whatsapp', receivedOn: value.metadata?.phone_number_id ?? null,
+        };
         if (msg.type === 'interactive') {
           const reply = msg.interactive?.button_reply ?? msg.interactive?.list_reply;
           const decoded = decodeReplyId(reply?.id);
